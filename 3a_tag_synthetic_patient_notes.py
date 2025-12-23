@@ -236,7 +236,7 @@ def worker_run(worker_id: int,
                 all_reason.extend(reason)
                 all_final.extend(final)
 
-            df["tagger_reasoning"] = all_reason
+            df["tagger_reasoning_and_output"] = all_reason
             df["tagger_llm_output"] = all_final
             df["worker_id"] = worker_id
             df["gpu_ids"] = ",".join(map(str, gpu_ids))
