@@ -260,10 +260,10 @@ def parse_args():
 
     # Inputs (defaults to your six CSVs)
     p.add_argument("--patients_rounds", type=str,
-                   default="top_cohorts_tocheck_round1.parquet,top_cohorts_tocheck_round2.parquet,top_cohorts_tocheck_round3.parquet",
+                   default="../data/top_cohorts_tocheck_round1.parquet,../data/top_cohorts_tocheck_round2.parquet,../data/top_cohorts_tocheck_round3.parquet",
                    help="Comma-separated CSVs of patient candidates")
     p.add_argument("--trials_rounds", type=str,
-                   default="top_patients_tocheck_round1.parquet,top_patients_tocheck_round2.parquet,top_patients_tocheck_round3.parquet",
+                   default="../data/top_patients_tocheck_round1.parquet,../data/top_patients_tocheck_round2.parquet,../data/top_patients_tocheck_round3.parquet",
                    help="Comma-separated CSVs of trial candidates")
 
     return p.parse_args()
@@ -345,7 +345,7 @@ def main():
     final = final.sort_values("row_id").drop_duplicates(subset=["row_id"], keep="first").reset_index(drop=True)
 
     final.to_parquet(final_parquet, index=False)
-    final.to_csv(final_csv, index=False)
+    #final.to_csv(final_csv, index=False)
     print(f"[Main] Wrote {len(final)} rows -> {final_parquet} and {final_csv}", flush=True)
 
 

@@ -11,7 +11,7 @@ python 0b_create_trial_spaces.py \
   --input ctgov_trials.csv \
   --gpus 2,3 \
   --gpus-per-instance 1 \
-  --download-dir /data1/ken/meta/2024/meta_ai
+  --download-dir ../models
 
 
 Outputs
@@ -241,13 +241,13 @@ def split_into_groups(items, group_size):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Input CSV of trials (ctgov_cancer_trials_9-2025.csv)")
-    parser.add_argument("--output-trials", default="trials_with_spaces.csv")
-    parser.add_argument("--output-spaces", default="trial_space_lineitems.csv")
-    parser.add_argument("--work-dir", default="trial_space_shards", help="Directory for shard inputs/outputs")
+    parser.add_argument("--output-trials", default="../data/trials_with_spaces.csv")
+    parser.add_argument("--output-spaces", default="../data/trial_space_lineitems.csv")
+    parser.add_argument("--work-dir", default="../data/trial_space_shards", help="Directory for shard inputs/outputs")
     parser.add_argument("--gpus", required=True, help="Comma-separated GPU IDs, e.g. 0,1,2,3")
     parser.add_argument("--gpus-per-instance", type=int, default=1, help="Tensor-parallel GPUs per instance (set >1 for very large models)")
     parser.add_argument("--model", default="openai/gpt-oss-120b")
-    parser.add_argument("--download-dir", default="../meta_ai")
+    parser.add_argument("--download-dir", default="../models")
     parser.add_argument("--max-model-len", type=int, default=10000)
     parser.add_argument("--gpu-mem-util", type=float, default=0.94)
     parser.add_argument("--temperature", type=float, default=0.0)

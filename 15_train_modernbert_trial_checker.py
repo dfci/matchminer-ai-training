@@ -1,25 +1,26 @@
 import pandas as pd
 import numpy as np
 import os
+import argparse
 import torch
 torch.compile.disable = True
 torch.set_float32_matmul_precision('high')
 
 
-def main():
+def main(checkpoint_dir: str, output_dir: str):
     
-    enrollments = pd.read_parquet('./initial_trialcheck_outputs/space_specific_eligibility_checks.parquet')
+    enrollments = pd.read_parquet('../data/space_specific_eligibility_checks.parquet')
     enrollments.info()
-    
-    round1_patient = pd.read_parquet('./round1_patientcentric_checks/top_cohorts_checked_round1.parquet')
-    round2_patient = pd.read_parquet('./round2_patientcentric_checks/top_cohorts_checked_round2.parquet')
-    round3_patient = pd.read_parquet('./round3_patientcentric_checks/top_cohorts_checked_round3.parquet')
+
+    round1_patient = pd.read_parquet('../data/round1_patientcentric_checks/top_cohorts_checked_round1.parquet')
+    round2_patient = pd.read_parquet('../data/round2_patientcentric_checks/top_cohorts_checked_round2.parquet')
+    round3_patient = pd.read_parquet('../data/round3_patientcentric_checks/top_cohorts_checked_round3.parquet')
     patient = pd.concat([round1_patient, round2_patient, round3_patient], ignore_index=True, axis=0)
     patient.info()
-    
-    round1_space = pd.read_parquet('./round1_trialcentric_checks/top_patients_checked_round1.parquet')
-    round2_space = pd.read_parquet('./round2_trialcentric_checks/top_patients_checked_round2.parquet')
-    round3_space = pd.read_parquet('./round3_trialcentric_checks/top_patients_checked_round3.parquet')
+
+    round1_space = pd.read_parquet('../data/round1_trialcentric_checks/top_patients_checked_round1.parquet')
+    round2_space = pd.read_parquet('../data/round2_trialcentric_checks/top_patients_checked_round2.parquet')
+    round3_space = pd.read_parquet('../data/round3_trialcentric_checks/top_patients_checked_round3.parquet')
     
     space = pd.concat([round1_space, round2_space, round3_space], axis=0, ignore_index=True)
     space.info()
@@ -81,7 +82,7 @@ def main():
     
     
     training_args = TrainingArguments(
-        output_dir="modernbert_checker_training",
+        output_dir=checkpoint_dir,
         learning_rate=2e-5,
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
@@ -104,9 +105,19 @@ def main():
         #compute_metrics=compute_metrics,
     )
     
-    trainer.train()
+    # Resume from checkpoint only if checkpoint directory exists
+    resume_from_checkpoint = os.path.isdir(checkpoint_dir) and any(
+        d.startswith("checkpoint-") for d in os.listdir(checkpoint_dir)
+    )
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
     
-    trainer.save_model('modernbert-trial-checker')
+    trainer.save_model(output_dir)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Train ModernBERT trial checker model")
+    parser.add_argument("--checkpoint_dir", type=str, default="../models/trialchecker_checkpoints",
+                        help="Directory to save training checkpoints (default: ../models/trialchecker_checkpoints)")
+    parser.add_argument("--output_dir", type=str, default="../models/modernbert-trial-checker",
+                        help="Directory to save final model (default: ../models/modernbert-trial-checker)")
+    args = parser.parse_args()
+    main(checkpoint_dir=args.checkpoint_dir, output_dir=args.output_dir)

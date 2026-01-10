@@ -74,6 +74,6 @@ if __name__ == "__main__":
     print(df.head())
     
     # Optionally save to CSV
-    output_file = "ctgov_trials.csv"
+    output_file = "../data/ctgov_trials.csv"
     df.to_csv(output_file, index=False)
     print(f"\nSaved DataFrame to {output_file}")

@@ -44,7 +44,7 @@ def parse_args():
     ap.add_argument(
         "--parquet",
         default="trial_specific_eligibility_checks.parquet",
-        help="Input parquet containing columns: patient_summary, patient_long_text, patient_boilerplate_text, this_space, nct_id, eligibility_result",
+        help="Input parquet containing columns: patient_summary, patient_boilerplate_text, this_space, nct_id, eligibility_result",
     )
     ap.add_argument("--model", default="pt_trial_summary_pertrial_finetuned.model")
     ap.add_argument(
@@ -311,7 +311,7 @@ def main():
 
     # Deduplicate to get unique patients
     patients = df.groupby("patient_summary", as_index=False).first()[
-        ["patient_summary", "patient_long_text", "patient_boilerplate_text"]
+        ["patient_summary", "patient_boilerplate_text"]
     ].copy()
     
     # Get all unique trials (with their spaces)
@@ -395,11 +395,10 @@ def main():
             space_row = trials_spaces.iloc[space_idx]
             out_rows.append({
                 "patient_summary": patient_row["patient_summary"],
-                "patient_long_text": patient_row["patient_long_text"],
                 "patient_boilerplate_text": patient_row["patient_boilerplate_text"],
                 "nct_id": space_row["nct_id"],
                 "this_space": space_row["this_space"],
-		"trial_boilerplate_text": space_row["trial_boilerplate_text"]
+                "trial_boilerplate_text": space_row["trial_boilerplate_text"]
             })
 
     pts_to_spaces_df = pd.DataFrame(out_rows) if out_rows else pd.DataFrame()
@@ -449,11 +448,10 @@ def main():
             patient_row = patients.iloc[p_idx]
             out_rows.append({
                 "patient_summary": patient_row["patient_summary"],
-                "patient_long_text": patient_row["patient_long_text"],
                 "patient_boilerplate_text": patient_row["patient_boilerplate_text"],
                 "nct_id": space_row["nct_id"],
                 "this_space": space_row["this_space"],
-		"trial_boilerplate_text": space_row["trial_boilerplate_text"]
+                "trial_boilerplate_text": space_row["trial_boilerplate_text"]
             })
 
     spaces_to_pts_df = pd.DataFrame(out_rows) if out_rows else pd.DataFrame()
