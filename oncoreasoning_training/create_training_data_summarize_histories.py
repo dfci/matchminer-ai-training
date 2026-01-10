@@ -157,15 +157,15 @@ def main():
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained('meta-llama/llama-3.2-3B-Instruct')
 
-    print("Loading patient serial summaries data from ../../data/patient_serial_summaries.parquet...")
-    serial_summaries = pd.read_parquet('../../data/patient_serial_summaries.parquet')
+    print("Loading patient serial summaries data from ../../data/no_phi/patient_serial_summaries.parquet...")
+    serial_summaries = pd.read_parquet('../../data/no_phi/patient_serial_summaries.parquet')
     print(f"Loaded {len(serial_summaries)} records")
 
     print("Generating training prompts...")
     prompts = create_training_prompts(serial_summaries, tokenizer)
 
-    print("Saving to ../../data/oncoreasoning_training_data/summarized_patient_histories.parquet...")
-    pd.DataFrame(prompts, columns=['text']).to_parquet('../../data/oncoreasoning_training_data/summarized_patient_histories.parquet')
+    print("Saving to ../../data/no_phi/oncoreasoning_training_data/summarized_patient_histories.parquet...")
+    pd.DataFrame(prompts, columns=['text']).to_parquet('../../data/no_phi/oncoreasoning_training_data/summarized_patient_histories.parquet')
     print(f"Done! Saved {len(prompts)} records")
 
 

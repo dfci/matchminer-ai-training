@@ -83,15 +83,15 @@ def main():
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained('meta-llama/llama-3.2-3B-Instruct')
 
-    print("Loading trial spaces data from ../../data/trial_space_lineitems.csv...")
-    trial_spaces = pd.read_csv("../../data/trial_space_lineitems.csv")
+    print("Loading trial spaces data from ../../data/no_phi/trial_space_lineitems.csv...")
+    trial_spaces = pd.read_csv("../../data/no_phi/trial_space_lineitems.csv")
     print(f"Loaded {len(trial_spaces)} records")
 
     print("Generating training prompts...")
     output = spacify_trial(trial_spaces, tokenizer)
 
-    print("Saving to ../../data/oncoreasoning_training_data/spacified_trial.parquet...")
-    pd.DataFrame(output, columns=['text']).to_parquet('../../data/oncoreasoning_training_data/spacified_trial.parquet')
+    print("Saving to ../../data/no_phi/oncoreasoning_training_data/spacified_trial.parquet...")
+    pd.DataFrame(output, columns=['text']).to_parquet('../../data/no_phi/oncoreasoning_training_data/spacified_trial.parquet')
     print(f"Done! Saved {len(output)} records")
 
 

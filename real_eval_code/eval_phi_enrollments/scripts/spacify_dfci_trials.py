@@ -49,7 +49,7 @@ def main():
     if args.create_spaces_script is None:
         # Try common locations
         possible_paths = [
-            REPO_ROOT / "scripts/0b_create_trial_spaces.py",
+            REPO_ROOT / "0b_create_trial_spaces.py",
             Path("/ksg/kehl_mm_data/meta/2024/v20/v20_training_code/0b_create_trial_spaces.py"),
         ]
         for p in possible_paths:
@@ -93,7 +93,9 @@ def main():
     cmd = [
         "python", args.create_spaces_script,
         "--input", str(trials_csv),
-        "--output", str(output_csv),
+        "--output-spaces", str(output_csv),
+        "--output-trials", str(output_dir / "trials_with_spaces.csv"),
+        "--work-dir", str(output_dir / "trial_space_shards"),
         "--gpus", args.gpus,
         "--gpus-per-instance", str(args.gpus_per_instance),
         "--download-dir", args.download_dir,

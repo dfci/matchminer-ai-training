@@ -19,7 +19,7 @@ from transformers import AutoModelForSequenceClassification, TrainingArguments, 
 
 def main(checkpoint_dir: str, output_dir: str):
     
-    boilerplate_checks = pd.read_parquet("../data/boilerplate_checks/final_boilerplate_checks.parquet")
+    boilerplate_checks = pd.read_parquet("../data/no_phi/boilerplate_checks/final_boilerplate_checks.parquet")
     
     
     

@@ -117,8 +117,8 @@ def process_outputs(request_outputs, reasoning_marker=REASONING_MARKER):
 # -----------------------------
 def parse_args():
     p = argparse.ArgumentParser(description="Resumable synthetic clinical history generator per trial space.")
-    p.add_argument("--input-csv", default="../data/sample_trial_space_lineitems.csv", help="Input CSV with trial spaces.")
-    p.add_argument("--output-csv", default="../data/trial_spaces_with_negative_prompts.csv", help="Final output CSV path.")
+    p.add_argument("--input-csv", default="../data/no_phi/sample_trial_space_lineitems.csv", help="Input CSV with trial spaces.")
+    p.add_argument("--output-csv", default="../data/no_phi/trial_spaces_with_negative_prompts.csv", help="Final output CSV path.")
     p.add_argument("--output-dir", default=None, help="Directory for shard outputs and logs. Default: <output_csv_basename>_shards/")
     p.add_argument("--gpu-groups", default="0|1|2|3|4|5|6|7",
                    help='GPU groups string. Examples: "0,1,2,3|4,5,6,7" (two workers, TP=4 each) or "0,1,2,3,4,5,6,7" (one worker, TP=8).')

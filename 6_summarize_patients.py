@@ -11,9 +11,9 @@ Examples
 --------
 # Basic usage with 4 GPUs (2 per kernel = 2 workers)
 python 6_summarize_patients.py \
-  --input_parquet ../data/all_synthetic_notes.parquet \
-  --output_parquet ../data/patient_serial_summaries.parquet \
-  --shard_dir ../data/summary_shards \
+  --input_parquet ../data/no_phi/all_synthetic_notes.parquet \
+  --output_parquet ../data/no_phi/patient_serial_summaries.parquet \
+  --shard_dir ../data/no_phi/summary_shards \
   --model openai/gpt-oss-120b \
   --download_dir /data1/ken/models \
   --gpu_ids 2,3 \
@@ -28,9 +28,9 @@ python 6_summarize_patients.py \
 
 # With explicit GPU groups
 python 6_summarize_patients.py \
-  --input_parquet ../data/all_synthetic_notes.parquet \
-  --output_parquet ../data/patient_serial_summaries.parquet \
-  --shard_dir ../data/summary_shards \
+  --input_parquet ../data/no_phi/all_synthetic_notes.parquet \
+  --output_parquet ../data/no_phi/patient_serial_summaries.parquet \
+  --shard_dir ../data/no_phi/summary_shards \
   --model openai/gpt-oss-120b \
   --download_dir ../meta_ai \
   --gpu_ids 0,1;2,3 \
@@ -425,8 +425,8 @@ def main():
     ap = argparse.ArgumentParser("Serial patient summarization with iterative updates using vLLM.")
     ap.add_argument("--input_parquet", required=True)
     ap.add_argument("--output_parquet", required=True)
-    ap.add_argument("--patient_summaries_parquet", default="../data/patient_summaries.parquet",
-                    help="Output parquet with just the last row per patient (default: ../data/patient_summaries.parquet)")
+    ap.add_argument("--patient_summaries_parquet", default="../data/no_phi/patient_summaries.parquet",
+                    help="Output parquet with just the last row per patient (default: ../data/no_phi/patient_summaries.parquet)")
     ap.add_argument("--shard_dir", required=True, help="Directory for checkpoint shards")
     ap.add_argument("--patient_id_col", default="pseudo_mrn", help="Column name for patient ID")
     ap.add_argument("--date_col", default="date", help="Column name for note date (will be created if missing and --generate_dates is set)")

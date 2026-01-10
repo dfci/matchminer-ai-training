@@ -13,7 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import SFTConfig, SFTTrainer
 from peft import LoraConfig, TaskType
 
-dataset = Dataset.load_from_disk('../../data/oncoreasoning_training_data/tokenized_training_data.dataset/')
+dataset = Dataset.load_from_disk('../../data/no_phi/oncoreasoning_training_data/tokenized_training_data.dataset/')
 
 
 lora_config = LoraConfig(

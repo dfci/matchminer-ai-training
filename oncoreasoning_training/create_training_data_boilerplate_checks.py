@@ -54,15 +54,15 @@ def main():
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained('meta-llama/llama-3.2-3B-Instruct')
 
-    print("Loading boilerplate checks data from ../../data/boilerplate_checks/final_boilerplate_checks.parquet...")
-    boilerplate_checks = pd.read_parquet('../../data/boilerplate_checks/final_boilerplate_checks.parquet')
+    print("Loading boilerplate checks data from ../../data/no_phi/boilerplate_checks/final_boilerplate_checks.parquet...")
+    boilerplate_checks = pd.read_parquet('../../data/no_phi/boilerplate_checks/final_boilerplate_checks.parquet')
     print(f"Loaded {len(boilerplate_checks)} records")
 
     print("Generating training prompts...")
     output = boilerplatecheck(boilerplate_checks, tokenizer)
 
-    print("Saving to ../../data/oncoreasoning_training_data/boilerplate_checks.parquet...")
-    pd.DataFrame(output, columns=['text']).to_parquet('../../data/oncoreasoning_training_data/boilerplate_checks.parquet')
+    print("Saving to ../../data/no_phi/oncoreasoning_training_data/boilerplate_checks.parquet...")
+    pd.DataFrame(output, columns=['text']).to_parquet('../../data/no_phi/oncoreasoning_training_data/boilerplate_checks.parquet')
     print(f"Done! Saved {len(output)} records")
 
 

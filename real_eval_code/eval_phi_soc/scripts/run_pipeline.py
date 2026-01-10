@@ -36,9 +36,10 @@ from typing import List, Dict, Optional
 
 # Repo root for default paths
 REPO_ROOT = Path(__file__).resolve().parents[3]  # matchminer-ai-training
-SCRIPTS_DIR = Path(__file__).parent.resolve()
+SCRIPTS_DIR = Path(__file__).resolve()
 ENROLLMENTS_SCRIPTS_DIR = REPO_ROOT / "real_eval_code/eval_phi_enrollments/scripts"
 DATA_DIR = REPO_ROOT.parent / "data/phi/soc"
+GOLD_LLM = 'openai/gpt-oss-120b'
 
 
 STAGES = [
@@ -212,7 +213,7 @@ def main():
         print("="*70)
 
         cmd = [
-            "python", str(SCRIPTS_DIR / "prepare_data.py"),
+            "python", "prepare_data.py",
             "--structured-folder", args.structured_folder,
             "--split-path", args.split_path,
             "--derived-data-path", args.derived_data_path,
@@ -264,9 +265,9 @@ def main():
         # NOT used in training. This uses prepare_trials.py which implements
         # the logic from 1_pull_trials.ipynb.
         cmd = [
-            "python", str(SCRIPTS_DIR / "prepare_trials.py"),
-            "--all-trials", str(REPO_ROOT.parent / "data/trial_space_lineitems.csv"),
-            "--training-trials", str(REPO_ROOT.parent / "data/sample_trial_space_lineitems.csv"),
+            "python", "prepare_trials.py",
+            "--all-trials", str(REPO_ROOT.parent / "data/no_phi/trial_space_lineitems.csv"),
+            "--training-trials", str(REPO_ROOT.parent / "data/no_phi/sample_trial_space_lineitems.csv"),
             "--output-file", str(DATA_DIR / "trial_space_lineitems.csv"),
             "--n-trials", str(args.n_trials),
             "--random-seed", str(args.random_seed),
@@ -347,7 +348,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_eligibility_checks"),
-                'model': str(REPO_ROOT.parent / "models/trialchecker"),
+                'model': GOLD_LLM,
                 'description': "Patient-centric eligibility check",
             },
             {
@@ -355,7 +356,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_boilerplate_checks"),
-                'model': str(REPO_ROOT.parent / "models/boilerplatechecker"),
+                'model': GOLD_LLM,
                 'description': "Patient-centric boilerplate check",
             },
             {
@@ -363,7 +364,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_eligibility_checks"),
-                'model': str(REPO_ROOT.parent / "models/trialchecker"),
+                'model': GOLD_LLM,
                 'description': "Trial-centric eligibility check",
             },
             {
@@ -371,7 +372,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_boilerplate_checks"),
-                'model': str(REPO_ROOT.parent / "models/boilerplatechecker"),
+                'model': GOLD_LLM,
                 'description': "Trial-centric boilerplate check",
             },
         ]

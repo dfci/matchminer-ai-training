@@ -260,10 +260,10 @@ def parse_args():
 
     # Inputs (defaults to your six CSVs)
     p.add_argument("--patients_rounds", type=str,
-                   default="../data/top_cohorts_tocheck_round1.parquet,../data/top_cohorts_tocheck_round2.parquet,../data/top_cohorts_tocheck_round3.parquet",
+                   default="../data/no_phi/top_cohorts_tocheck_round1.parquet,../data/no_phi/top_cohorts_tocheck_round2.parquet,../data/no_phi/top_cohorts_tocheck_round3.parquet",
                    help="Comma-separated CSVs of patient candidates")
     p.add_argument("--trials_rounds", type=str,
-                   default="../data/top_patients_tocheck_round1.parquet,../data/top_patients_tocheck_round2.parquet,../data/top_patients_tocheck_round3.parquet",
+                   default="../data/no_phi/top_patients_tocheck_round1.parquet,../data/no_phi/top_patients_tocheck_round2.parquet,../data/no_phi/top_patients_tocheck_round3.parquet",
                    help="Comma-separated CSVs of trial candidates")
 
     return p.parse_args()

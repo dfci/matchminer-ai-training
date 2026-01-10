@@ -37,9 +37,9 @@ from typing import List, Dict, Optional
 
 # Repo root for default paths
 REPO_ROOT = Path(__file__).resolve().parents[3]  # matchminer-ai-training
-SCRIPTS_DIR = Path(__file__).parent.resolve()
+SCRIPTS_DIR = Path(__file__).resolve()
 DATA_DIR = REPO_ROOT.parent / "data/phi/enrollments"
-
+GOLD_LLM = "openai/gpt-oss-120b"
 
 STAGES = [
     "prepare",        # Data preparation
@@ -200,7 +200,7 @@ def main():
         print("="*70)
 
         cmd = [
-            "python", str(SCRIPTS_DIR / "prepare_data.py"),
+            "python", "prepare_data.py",
             "--forken-path", args.forken_path,
             "--derived-data-path", args.derived_data_path,
             "--enrollments-path", args.enrollments_path,
@@ -246,7 +246,7 @@ def main():
         spacify_gpus = ",".join(gpu_list[:min(2, num_gpus)])
 
         cmd = [
-            "python", str(SCRIPTS_DIR / "spacify_dfci_trials.py"),
+            "python", "spacify_dfci_trials.py",
             "--gpus", spacify_gpus,
             "--gpus-per-instance", "2",
             "--input-file", str(DATA_DIR / "processed_trial_enrollments.csv"),
@@ -276,7 +276,7 @@ def main():
             commands = [
                 {
                     'cmd': [
-                        "python", str(SCRIPTS_DIR / "patient_centric_retrieval.py"),
+                        "python", "patient_centric_retrieval.py",
                         "--gpu", gpu_list[0],
                         "--output-file", str(DATA_DIR / "patient_centric_candidates.csv"),
                         "--shard-dir", str(DATA_DIR / "shards_patient_centric"),
@@ -286,7 +286,7 @@ def main():
                 },
                 {
                     'cmd': [
-                        "python", str(SCRIPTS_DIR / "trial_centric_retrieval.py"),
+                        "python", "trial_centric_retrieval.py",
                         "--gpu", gpu_list[1],
                         "--output-file", str(DATA_DIR / "trial_centric_candidates.csv"),
                         "--shard-dir", str(DATA_DIR / "shards_trial_centric"),
@@ -329,7 +329,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_eligibility_checks"),
-                'model': str(REPO_ROOT.parent / "models/trialchecker"),
+                'model': GOLD_LLM,
                 'description': "Patient-centric eligibility check",
             },
             {
@@ -337,7 +337,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_boilerplate_checks"),
-                'model': str(REPO_ROOT.parent / "models/boilerplatechecker"),
+                'model': GOLD_LLM,
                 'description': "Patient-centric boilerplate check",
             },
             {
@@ -345,7 +345,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_eligibility_checks"),
-                'model': str(REPO_ROOT.parent / "models/trialchecker"),
+                'model': GOLD_LLM,
                 'description': "Trial-centric eligibility check",
             },
             {
@@ -353,7 +353,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_boilerplate_checks"),
-                'model': str(REPO_ROOT.parent / "models/boilerplatechecker"),
+                'model': GOLD_LLM,
                 'description': "Trial-centric boilerplate check",
             },
         ]
@@ -363,7 +363,7 @@ def main():
         for i, task in enumerate(check_tasks):
             gpu_idx = i % num_gpus
             cmd = [
-                "python", str(SCRIPTS_DIR / task['script']),
+                "python", task['script'],
                 "--gpu", gpu_list[gpu_idx],
                 "--download-dir", args.download_dir,
                 "--input", task['input'],

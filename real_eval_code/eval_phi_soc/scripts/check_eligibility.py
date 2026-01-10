@@ -35,8 +35,8 @@ def parse_args():
                         help="Output directory for shard files (default: derived from mode)")
     parser.add_argument("--batch-size", type=int, default=2000,
                         help="Batch size for LLM inference")
-    parser.add_argument("--model", type=str, default=None,
-                        help="Model path (default: models/trialchecker)")
+    parser.add_argument("--model", type=str, default='openai/gpt-oss-120b',
+                        help="Model path (default: openai/gpt-oss-120b")
     parser.add_argument("--download-dir", type=str,
                         default="/data1/ken/meta/2024/meta_ai",
                         help="Download directory for model weights (used if model not found locally)")
@@ -136,7 +136,7 @@ def main():
 
     # Set defaults based on mode
     if args.model is None:
-        args.model = str(REPO_ROOT.parent / "models/trialchecker")
+        args.model = 'openai/gpt-oss-120b'
 
     if args.input is None:
         if args.mode == "patient_centric":

@@ -17,13 +17,13 @@ def main():
     parser.add_argument(
         "--input-dir",
         type=str,
-        default="../../data/oncoreasoning_training_data",
+        default="../../data/no_phi/oncoreasoning_training_data",
         help="Directory containing input parquet files",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="../../data/oncoreasoning_training_data",
+        default="../../data/no_phi/oncoreasoning_training_data",
         help="Directory to save output files",
     )
     parser.add_argument(

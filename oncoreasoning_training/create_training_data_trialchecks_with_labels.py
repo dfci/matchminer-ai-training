@@ -64,40 +64,40 @@ def main():
 
     # Load primary trial spaces data
     print("Loading space_specific_eligibility_checks.parquet...")
-    trial_spaces = pd.read_parquet('../../data/space_specific_eligibility_checks.parquet')
+    trial_spaces = pd.read_parquet('../../data/no_phi/space_specific_eligibility_checks.parquet')
     trial_spaces = trial_spaces[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Loaded {len(trial_spaces)} records")
 
     # Load patient cohort rounds (patientcentric checks)
     print("Loading patient cohort rounds...")
-    patient_round1 = pd.read_parquet('../../data/round1_patientcentric_checks/top_cohorts_checked_round1.parquet').rename(
+    patient_round1 = pd.read_parquet('../../data/no_phi/round1_patientcentric_checks/top_cohorts_checked_round1.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 1: {len(patient_round1)} records")
 
-    patient_round2 = pd.read_parquet('../../data/round2_patientcentric_checks/top_cohorts_checked_round2.parquet').rename(
+    patient_round2 = pd.read_parquet('../../data/no_phi/round2_patientcentric_checks/top_cohorts_checked_round2.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 2: {len(patient_round2)} records")
 
-    patient_round3 = pd.read_parquet('../../data/round3_patientcentric_checks/top_cohorts_checked_round3.parquet').rename(
+    patient_round3 = pd.read_parquet('../../data/no_phi/round3_patientcentric_checks/top_cohorts_checked_round3.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 3: {len(patient_round3)} records")
 
     # Load trial patient rounds (trialcentric checks)
     print("Loading trial patient rounds...")
-    trial_round1 = pd.read_parquet('../../data/round1_trialcentric_checks/top_patients_checked_round1.parquet').rename(
+    trial_round1 = pd.read_parquet('../../data/no_phi/round1_trialcentric_checks/top_patients_checked_round1.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 1: {len(trial_round1)} records")
 
-    trial_round2 = pd.read_parquet('../../data/round2_trialcentric_checks/top_patients_checked_round2.parquet').rename(
+    trial_round2 = pd.read_parquet('../../data/no_phi/round2_trialcentric_checks/top_patients_checked_round2.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 2: {len(trial_round2)} records")
 
-    trial_round3 = pd.read_parquet('../../data/round3_trialcentric_checks/top_patients_checked_round3.parquet').rename(
+    trial_round3 = pd.read_parquet('../../data/no_phi/round3_trialcentric_checks/top_patients_checked_round3.parquet').rename(
         columns={'trialcheck_llama_response': 'trialcheck_llm_response'}
     )[['patient_summary', 'this_space', 'trialcheck_llm_response', 'eligibility_result']]
     print(f"  Round 3: {len(trial_round3)} records")
@@ -118,11 +118,11 @@ def main():
     print("Generating training prompts...")
     output = trialcheck(firstchecks, tokenizer)
 
-    print("Saving to ../../data/oncoreasoning_training_data/trialchecks_with_labels.parquet...")
+    print("Saving to ../../data/no_phi/oncoreasoning_training_data/trialchecks_with_labels.parquet...")
     pd.DataFrame({
         'text': output,
         'label': firstchecks.eligibility_result
-    }).to_parquet('../../data/oncoreasoning_training_data/trialchecks_with_labels.parquet')
+    }).to_parquet('../../data/no_phi/oncoreasoning_training_data/trialchecks_with_labels.parquet')
     print(f"Done! Saved {len(output)} records")
 
 

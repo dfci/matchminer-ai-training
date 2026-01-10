@@ -101,7 +101,7 @@ python -c "$aggregator"
 python 0a_parse_ctgov_json.py 
 
 python 0b_create_trial_spaces.py \
-   --input ../data/ctgov_trials.csv \
+   --input ../data/no_phi/ctgov_trials.csv \
    --gpus 0,1,2,3,4,5,6,7 \
    --gpus-per-instance 1
 
@@ -119,8 +119,8 @@ echo 1b done
 
 
 python 2_make_synthetic_notes_sharded.py \
-  --input_csv ../data/trial_spaces_with_positive_prompts.csv \
-  --out_dir ../data/synthetic_notes \
+  --input_csv ../data/no_phi/trial_spaces_with_positive_prompts.csv \
+  --out_dir ../data/no_phi/synthetic_notes \
   --model openai/gpt-oss-120b \
   --gpu_ids 0,1,2,3,4,5,6,7 \
   --download_dir ../models \
@@ -133,8 +133,8 @@ echo 2a done
 
 
 python 2_make_synthetic_notes_sharded.py \
-  --input_csv ../data/trial_spaces_with_negative_prompts.csv \
-  --out_dir ../data/synthetic_negative_notes \
+  --input_csv ../data/no_phi/trial_spaces_with_negative_prompts.csv \
+  --out_dir ../data/no_phi/synthetic_negative_notes \
   --model openai/gpt-oss-120b \
   --gpu_ids 0,1,2,3,4,5,6,7 \
   --download_dir ../models \
@@ -149,11 +149,11 @@ echo 2b done
 aggregator=$(cat << EOF
 import pandas as pd
 
-positive_notes = pd.read_parquet("../data/synthetic_notes/synthetic_notes.parquet")
+positive_notes = pd.read_parquet("../data/no_phi/synthetic_notes/synthetic_notes.parquet")
 
 print(positive_notes.info())
 
-negative_notes = pd.read_parquet("../data/synthetic_negative_notes/synthetic_notes.parquet")
+negative_notes = pd.read_parquet("../data/no_phi/synthetic_negative_notes/synthetic_notes.parquet")
 
 print(negative_notes.info())
 
@@ -165,7 +165,7 @@ output = pd.concat([positive_notes, negative_notes], ignore_index=True)
 
 output = pd.merge(output, spaces, on='space_index')
 
-output.to_parquet("../data/all_synthetic_notes.parquet")
+output.to_parquet("../data/no_phi/all_synthetic_notes.parquet")
 
 EOF
 )
@@ -178,9 +178,9 @@ python -c "$aggregator"
 
 
 python 6_summarize_patients.py \
-  --input_parquet ../data/all_synthetic_notes.parquet \
-  --output_parquet ../data/patient_serial_summaries.parquet \
-  --shard_dir ../data/summary_shards \
+  --input_parquet ../data/no_phi/all_synthetic_notes.parquet \
+  --output_parquet ../data/no_phi/patient_serial_summaries.parquet \
+  --shard_dir ../data/no_phi/summary_shards \
   --model openai/gpt-oss-120b \
   --download_dir ../models \
   --gpu_ids 0,1,2,3,4,5,6,7 \
@@ -198,12 +198,12 @@ echo 6 done
 aggregator=$(cat << EOF
 import pandas as pd
 
-spaces = pd.read_csv('../data/sample_trial_space_lineitems.csv')
-summaries = pd.read_parquet('../data/patient_summaries.parquet')
+spaces = pd.read_csv('../data/no_phi/sample_trial_space_lineitems.csv')
+summaries = pd.read_parquet('../data/no_phi/patient_summaries.parquet')
 
 summaries = pd.merge(summaries, spaces, on='space_index')
 
-summaries.to_parquet('../data/patient_summaries_with_spaces.parquet')
+summaries.to_parquet('../data/no_phi/patient_summaries_with_spaces.parquet')
 
 EOF
 )
@@ -215,8 +215,8 @@ python -c "$aggregator"
 
 
 python llm_check_trials.py \
- --input_parquet ../data/patient_summaries_with_spaces.parquet \
- --out_dir ../data/initial_trialcheck_outputs \
+ --input_parquet ../data/no_phi/patient_summaries_with_spaces.parquet \
+ --out_dir ../data/no_phi/initial_trialcheck_outputs \
  --final_output space_specific_eligibility_checks.parquet \
  --gpus 0,1,2,3,4,5,6,7 \
  --gpus_per_kernel 1 \
@@ -228,15 +228,15 @@ python llm_check_trials.py \
 
 echo 7 done
 
-mv ../data/initial_trialcheck_outputs/space_specific_eligibility_checks.parquet ../data/space_specific_eligibility_checks.parquet
+mv ../data/no_phi/initial_trialcheck_outputs/space_specific_eligibility_checks.parquet ../data/no_phi/space_specific_eligibility_checks.parquet
 
-accelerate launch finetune_embedder.py -i ../data/space_specific_eligibility_checks.parquet \
+accelerate launch finetune_embedder.py -i ../data/no_phi/space_specific_eligibility_checks.parquet \
 -c ../models/initial_embedder_training -m Qwen/Qwen3-Embedding-0.6B -o ../models/pt_trial_summary_perspace_finetuned.model
 
 echo 8 done
 
 python make_top_matches.py \
-  --parquet ../data/space_specific_eligibility_checks.parquet \
+  --parquet ../data/no_phi/space_specific_eligibility_checks.parquet \
   --model ../models/pt_trial_summary_perspace_finetuned.model \
   --gpus 0,1,2,3,4,5,6,7 \
   --sample_trials_per_patient 500 \
@@ -246,14 +246,14 @@ python make_top_matches.py \
   --encode_batch_size 128 \
   --score_batch_size 2048 \
   --max_seq_length 2500 \
-  --out_cohorts_parquet ../data/top_cohorts_tocheck_round1.parquet \
-  --out_patients_parquet ../data/top_patients_tocheck_round1.parquet
+  --out_cohorts_parquet ../data/no_phi/top_cohorts_tocheck_round1.parquet \
+  --out_patients_parquet ../data/no_phi/top_patients_tocheck_round1.parquet
 
 echo 9a done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_cohorts_tocheck_round1.parquet \
-  --out_dir ../data/round1_patientcentric_checks \
+  --input_parquet ../data/no_phi/top_cohorts_tocheck_round1.parquet \
+  --out_dir ../data/no_phi/round1_patientcentric_checks \
   --final_output top_cohorts_checked_round1.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -266,8 +266,8 @@ python llm_check_trials.py \
 echo 9b done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_patients_tocheck_round1.parquet \
-  --out_dir ../data/round1_trialcentric_checks \
+  --input_parquet ../data/no_phi/top_patients_tocheck_round1.parquet \
+  --out_dir ../data/no_phi/round1_trialcentric_checks \
   --final_output top_patients_checked_round1.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -280,8 +280,8 @@ python llm_check_trials.py \
 echo 9c done
 
 accelerate launch finetune_embedder.py \
-   -i ../data/round1_trialcentric_checks/top_patients_checked_round1.parquet \
-   -i ../data/round1_patientcentric_checks/top_cohorts_checked_round1.parquet \
+   -i ../data/no_phi/round1_trialcentric_checks/top_patients_checked_round1.parquet \
+   -i ../data/no_phi/round1_patientcentric_checks/top_cohorts_checked_round1.parquet \
    -c ../models/reranker1_training \
    -m ../models/pt_trial_summary_perspace_finetuned.model \
    -o ../models/reranker_round1.model
@@ -289,7 +289,7 @@ accelerate launch finetune_embedder.py \
 echo 10 done
 
 python make_top_matches.py \
-  --parquet ../data/space_specific_eligibility_checks.parquet \
+  --parquet ../data/no_phi/space_specific_eligibility_checks.parquet \
   --model ../models/reranker_round1.model \
   --gpus 0,1,2,3,4,5,6,7 \
   --sample_trials_per_patient 500 \
@@ -299,14 +299,14 @@ python make_top_matches.py \
   --encode_batch_size 128 \
   --score_batch_size 2048 \
   --max_seq_length 2500 \
-  --out_cohorts_parquet ../data/top_cohorts_tocheck_round2.parquet \
-  --out_patients_parquet ../data/top_patients_tocheck_round2.parquet
+  --out_cohorts_parquet ../data/no_phi/top_cohorts_tocheck_round2.parquet \
+  --out_patients_parquet ../data/no_phi/top_patients_tocheck_round2.parquet
 
 echo 11a done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_cohorts_tocheck_round2.parquet \
-  --out_dir ../data/round2_patientcentric_checks \
+  --input_parquet ../data/no_phi/top_cohorts_tocheck_round2.parquet \
+  --out_dir ../data/no_phi/round2_patientcentric_checks \
   --final_output top_cohorts_checked_round2.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -319,8 +319,8 @@ python llm_check_trials.py \
 echo 11b done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_patients_tocheck_round2.parquet \
-  --out_dir ../data/round2_trialcentric_checks \
+  --input_parquet ../data/no_phi/top_patients_tocheck_round2.parquet \
+  --out_dir ../data/no_phi/round2_trialcentric_checks \
   --final_output top_patients_checked_round2.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -333,8 +333,8 @@ python llm_check_trials.py \
 echo 11c done
 
 accelerate launch finetune_embedder.py \
-   -i ../data/round2_trialcentric_checks/top_patients_checked_round2.parquet \
-   -i ../data/round2_patientcentric_checks/top_cohorts_checked_round2.parquet \
+   -i ../data/no_phi/round2_trialcentric_checks/top_patients_checked_round2.parquet \
+   -i ../data/no_phi/round2_patientcentric_checks/top_cohorts_checked_round2.parquet \
    -c ../models/reranker2_training \
    -m ../models/reranker_round1.model \
    -o ../models/reranker_round2.model
@@ -343,7 +343,7 @@ echo 12 done
 
 
 python make_top_matches.py \
-  --parquet ../data/space_specific_eligibility_checks.parquet \
+  --parquet ../data/no_phi/space_specific_eligibility_checks.parquet \
   --model ../models/reranker_round2.model \
   --gpus 0,1,2,3,4,5,6,7 \
   --sample_trials_per_patient 500 \
@@ -353,14 +353,14 @@ python make_top_matches.py \
   --encode_batch_size 128 \
   --score_batch_size 2048 \
   --max_seq_length 2500 \
-  --out_cohorts_parquet ../data/top_cohorts_tocheck_round3.parquet \
-  --out_patients_parquet ../data/top_patients_tocheck_round3.parquet
+  --out_cohorts_parquet ../data/no_phi/top_cohorts_tocheck_round3.parquet \
+  --out_patients_parquet ../data/no_phi/top_patients_tocheck_round3.parquet
 
 echo 13a done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_cohorts_tocheck_round3.parquet \
-  --out_dir ../data/round3_patientcentric_checks \
+  --input_parquet ../data/no_phi/top_cohorts_tocheck_round3.parquet \
+  --out_dir ../data/no_phi/round3_patientcentric_checks \
   --final_output top_cohorts_checked_round3.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -373,8 +373,8 @@ python llm_check_trials.py \
 echo 13b done
 
 python llm_check_trials.py \
-  --input_parquet ../data/top_patients_tocheck_round3.parquet \
-  --out_dir ../data/round3_trialcentric_checks \
+  --input_parquet ../data/no_phi/top_patients_tocheck_round3.parquet \
+  --out_dir ../data/no_phi/round3_trialcentric_checks \
   --final_output top_patients_checked_round3.parquet \
   --gpus 0,1,2,3,4,5,6,7 \
   --gpus_per_kernel 1 \
@@ -395,7 +395,7 @@ python 14_check_boilerplate.py \
   --max_model_len 10000 \
   --max_new_tokens 5000 \
   --gpu_memory_utilization 0.95 \
-  --out_dir ../data/boilerplate_checks
+  --out_dir ../data/no_phi/boilerplate_checks
 
 echo 14 done
 

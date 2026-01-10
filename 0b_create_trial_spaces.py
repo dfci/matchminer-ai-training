@@ -241,9 +241,9 @@ def split_into_groups(items, group_size):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Input CSV of trials (ctgov_cancer_trials_9-2025.csv)")
-    parser.add_argument("--output-trials", default="../data/trials_with_spaces.csv")
-    parser.add_argument("--output-spaces", default="../data/trial_space_lineitems.csv")
-    parser.add_argument("--work-dir", default="../data/trial_space_shards", help="Directory for shard inputs/outputs")
+    parser.add_argument("--output-trials", default="../data/no_phi/trials_with_spaces.csv")
+    parser.add_argument("--output-spaces", default="../data/no_phi/trial_space_lineitems.csv")
+    parser.add_argument("--work-dir", default="../data/no_phi/trial_space_shards", help="Directory for shard inputs/outputs")
     parser.add_argument("--gpus", required=True, help="Comma-separated GPU IDs, e.g. 0,1,2,3")
     parser.add_argument("--gpus-per-instance", type=int, default=1, help="Tensor-parallel GPUs per instance (set >1 for very large models)")
     parser.add_argument("--model", default="openai/gpt-oss-120b")
