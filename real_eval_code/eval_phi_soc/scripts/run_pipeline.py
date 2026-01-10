@@ -12,6 +12,7 @@ Pipeline stages:
 3. retrieval: Patient-centric and trial-centric retrieval (can run in parallel)
 4. llm_checks: Eligibility and boilerplate LLM checks (can run in parallel)
 5. aggregation: Consolidate results (CPU only)
+6. evaluation: Run model evaluations and generate PDF reports
 
 Usage:
     # Run full pipeline with 4 GPUs
@@ -48,8 +49,12 @@ STAGES = [
     "spacify",        # Trial space creation
     "retrieval",      # Patient-centric + trial-centric retrieval
     "llm_checks",     # Eligibility + boilerplate checks
-    "aggregation"     # Result consolidation
+    "aggregation",    # Result consolidation
+    "evaluation"      # Model evaluation and PDF report generation
 ]
+
+# Module directories for evaluation
+EVAL_MODULES_DIR = Path(__file__).resolve().parent.parent
 
 
 def parse_args():
@@ -111,6 +116,16 @@ Examples:
                         help="Number of unique trials to sample for SOC evaluation (default: 500)")
     parser.add_argument("--random-seed", type=int, default=42,
                         help="Random seed for trial sampling (default: 42)")
+    # Arguments for evaluation stage
+    parser.add_argument("--trial-checker-model", type=str,
+                        default=str(REPO_ROOT.parent / "models/trialchecker"),
+                        help="Path to trial checker model for evaluation")
+    parser.add_argument("--boilerplate-checker-model", type=str,
+                        default=str(REPO_ROOT.parent / "models/boilerplatechecker"),
+                        help="Path to boilerplate checker model for evaluation")
+    parser.add_argument("--eval-output-dir", type=str,
+                        default=None,
+                        help="Output directory for evaluation PDFs (default: DATA_DIR/evaluation)")
     return parser.parse_args()
 
 
@@ -439,6 +454,97 @@ def main():
             ret = run_command(cmd, desc, args.dry_run)
             if ret != 0:
                 failures.append("aggregation")
+
+    # Stage 6: Evaluation (generate PDF reports with metrics)
+    if "evaluation" in stages_to_run:
+        print("\n" + "="*70)
+        print("STAGE 6: MODEL EVALUATION")
+        print("="*70)
+
+        eval_output_dir = Path(args.eval_output_dir) if args.eval_output_dir else DATA_DIR / "evaluation"
+        eval_output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Define evaluation tasks for each module
+        eval_tasks = [
+            # Trialspace baseline evaluation
+            {
+                'script': str(EVAL_MODULES_DIR / "trialspace-baseline" / "eval_baseline.py"),
+                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "trialspace-baseline")],
+                'description': "SOC Baseline patient-centric evaluation",
+            },
+            {
+                'script': str(EVAL_MODULES_DIR / "trialspace-baseline" / "eval_baseline.py"),
+                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "trialspace-baseline")],
+                'description': "SOC Baseline trial-centric evaluation",
+            },
+            # ModernBERT trial checker evaluation
+            {
+                'script': str(EVAL_MODULES_DIR / "modernbert-classifier-trial-checker" / "eval_trial_checker.py"),
+                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
+                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0]],
+                'description': "SOC ModernBERT trial checker patient-centric evaluation",
+            },
+            {
+                'script': str(EVAL_MODULES_DIR / "modernbert-classifier-trial-checker" / "eval_trial_checker.py"),
+                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
+                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0]],
+                'description': "SOC ModernBERT trial checker trial-centric evaluation",
+            },
+            # ModernBERT boilerplate checker evaluation
+            {
+                'script': str(EVAL_MODULES_DIR / "modernbert-boilerplate-checker" / "eval_boilerplate_checker.py"),
+                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
+                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0]],
+                'description': "SOC ModernBERT boilerplate checker patient-centric evaluation",
+            },
+            {
+                'script': str(EVAL_MODULES_DIR / "modernbert-boilerplate-checker" / "eval_boilerplate_checker.py"),
+                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
+                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0]],
+                'description': "SOC ModernBERT boilerplate checker trial-centric evaluation",
+            },
+            # OncoReasoning LLM trial checker evaluation
+            {
+                'script': str(EVAL_MODULES_DIR / "oncoreasoning-3b-trial-checker" / "eval_llm_trial_checker.py"),
+                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "oncoreasoning-trial-checker")],
+                'description': "SOC OncoReasoning trial checker patient-centric evaluation",
+            },
+            {
+                'script': str(EVAL_MODULES_DIR / "oncoreasoning-3b-trial-checker" / "eval_llm_trial_checker.py"),
+                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "oncoreasoning-trial-checker")],
+                'description': "SOC OncoReasoning trial checker trial-centric evaluation",
+            },
+            # OncoReasoning LLM boilerplate checker evaluation
+            {
+                'script': str(EVAL_MODULES_DIR / "oncoreasoning-3b-boilerplate-checker" / "eval_llm_boilerplate_checker.py"),
+                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "oncoreasoning-boilerplate-checker")],
+                'description': "SOC OncoReasoning boilerplate checker patient-centric evaluation",
+            },
+            {
+                'script': str(EVAL_MODULES_DIR / "oncoreasoning-3b-boilerplate-checker" / "eval_llm_boilerplate_checker.py"),
+                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
+                         "--output-dir", str(eval_output_dir / "oncoreasoning-boilerplate-checker")],
+                'description': "SOC OncoReasoning boilerplate checker trial-centric evaluation",
+            },
+        ]
+
+        for task in eval_tasks:
+            cmd = ["python", task['script']] + task['args']
+            ret = run_command(cmd, task['description'], args.dry_run)
+            if ret != 0:
+                print(f"Warning: {task['description']} failed, continuing...")
+                # Don't add to failures for evaluation - it's non-critical
+
+        print(f"\nEvaluation reports saved to: {eval_output_dir}")
 
     # Summary
     print("\n" + "="*70)
