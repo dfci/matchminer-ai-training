@@ -51,11 +51,6 @@ def main():
         help="Random seed for shuffling",
     )
     parser.add_argument(
-        "--skip-combine",
-        action="store_true",
-        help="Skip combining step if all_training_data.parquet already exists",
-    )
-    parser.add_argument(
         "--writer-batch-size",
         type=int,
         default=1000,
@@ -69,9 +64,10 @@ def main():
 
     combined_parquet_path = os.path.join(output_dir, "all_training_data.parquet")
 
-    # Check if we can skip combining
-    if args.skip_combine and os.path.exists(combined_parquet_path):
-        print(f"Skipping combine step, loading existing {combined_parquet_path}")
+    # Check if combined parquet already exists - skip to pre-tokenization if so
+    if os.path.exists(combined_parquet_path):
+        print(f"Combined parquet already exists at {combined_parquet_path}")
+        print("Skipping combine step, proceeding directly to pre-tokenization...")
     else:
         # Find all parquet files in input directory (excluding output files)
         parquet_files = [

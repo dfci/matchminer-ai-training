@@ -85,8 +85,10 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
 
     # Find LLM results file
     if llm_results_file is None:
-        # Look for standard file names
+        # Look for standard file names - aggregated outputs and oncoreasoning outputs
         possible_files = [
+            data_dir / "consolidated_eligibility_patient_centric.csv",
+            data_dir / "oncoreasoning_trialcheck_patient_centric.csv",
             data_dir / "patient_centric_eligibility_checks" / "consolidated_results.csv",
             data_dir / "final_reasonable_check_patient_centric_enrollments.csv",
             Path(__file__).parent / "final_reasonable_check_patient_centric_enrollments.csv",
@@ -103,21 +105,22 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
     # Load LLM predictions
     predictions = load_llm_results(llm_results_file)
 
-    # Load gold standard labels
-    candidates_dir = data_dir / "spaces_for_patient_checks"
-    if not candidates_dir.exists():
-        candidates_dir = data_dir / "shards_patient_centric"
+    # Load gold standard labels - prefer consolidated candidate file
+    consolidated_path = data_dir / "patient_centric_candidates.csv"
+    if consolidated_path.exists():
+        print(f"Loading consolidated file: {consolidated_path}")
+        gold = pd.read_csv(consolidated_path)
+    else:
+        # Fallback to shard directories
+        candidates_dir = data_dir / "spaces_for_patient_checks"
+        if not candidates_dir.exists():
+            candidates_dir = data_dir / "shards_patient_centric"
 
-    print(f"Loading gold standard from: {candidates_dir}")
+        print(f"Loading gold standard from: {candidates_dir}")
 
-    try:
-        gold = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        consolidated_path = data_dir / "patient_centric_candidates.csv"
-        if consolidated_path.exists():
-            print(f"Loading consolidated file: {consolidated_path}")
-            gold = pd.read_csv(consolidated_path)
-        else:
+        try:
+            gold = load_and_combine_csv_files(str(candidates_dir))
+        except FileNotFoundError:
             print(f"No gold standard data found")
             return
 
@@ -201,7 +204,10 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
 
     # Find LLM results file
     if llm_results_file is None:
+        # Look for standard file names - aggregated outputs and oncoreasoning outputs
         possible_files = [
+            data_dir / "consolidated_eligibility_trial_centric.csv",
+            data_dir / "oncoreasoning_trialcheck_trial_centric.csv",
             data_dir / "trial_centric_eligibility_checks" / "consolidated_results.csv",
             data_dir / "trial_centric_enrollment_results.csv",
             Path(__file__).parent / "trial_centric_enrollment_results.csv",
@@ -218,21 +224,22 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
     # Load LLM predictions
     predictions = load_llm_results(llm_results_file)
 
-    # Load gold standard labels
-    candidates_dir = data_dir / "patients_for_spaces_checks"
-    if not candidates_dir.exists():
-        candidates_dir = data_dir / "shards_trial_centric"
+    # Load gold standard labels - prefer consolidated candidate file
+    consolidated_path = data_dir / "trial_centric_candidates.csv"
+    if consolidated_path.exists():
+        print(f"Loading consolidated file: {consolidated_path}")
+        gold = pd.read_csv(consolidated_path)
+    else:
+        # Fallback to shard directories
+        candidates_dir = data_dir / "patients_for_spaces_checks"
+        if not candidates_dir.exists():
+            candidates_dir = data_dir / "shards_trial_centric"
 
-    print(f"Loading gold standard from: {candidates_dir}")
+        print(f"Loading gold standard from: {candidates_dir}")
 
-    try:
-        gold = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        consolidated_path = data_dir / "trial_centric_candidates.csv"
-        if consolidated_path.exists():
-            print(f"Loading consolidated file: {consolidated_path}")
-            gold = pd.read_csv(consolidated_path)
-        else:
+        try:
+            gold = load_and_combine_csv_files(str(candidates_dir))
+        except FileNotFoundError:
             print(f"No gold standard data found")
             return
 

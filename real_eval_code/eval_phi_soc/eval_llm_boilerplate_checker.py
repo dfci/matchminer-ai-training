@@ -59,7 +59,10 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
     print("=" * 60)
 
     if llm_results_file is None:
+        # Look for standard file names - aggregated outputs and oncoreasoning outputs
         possible_files = [
+            data_dir / "consolidated_boilerplate_patient_centric.csv",
+            data_dir / "oncoreasoning_boilerplate_patient_centric.csv",
             data_dir / "patient_centric_boilerplate_checks" / "consolidated_results.csv",
             data_dir / "boilerplate_patient_centric_soc.csv",
             Path(__file__).parent / "boilerplate_patient_centric_soc.csv",
@@ -75,17 +78,24 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
 
     predictions = load_llm_results(llm_results_file, 'exclusion_result')
 
-    candidates_dir = data_dir / "boilerplates_for_spaces_for_patient_checks"
-    if not candidates_dir.exists():
-        candidates_dir = data_dir / "patient_centric_boilerplate_checks"
+    # Load gold standard labels - prefer consolidated candidate file
+    consolidated_path = data_dir / "patient_centric_candidates.csv"
+    if consolidated_path.exists():
+        print(f"Loading consolidated file: {consolidated_path}")
+        gold = pd.read_csv(consolidated_path)
+    else:
+        # Fallback to shard directories
+        candidates_dir = data_dir / "boilerplates_for_spaces_for_patient_checks"
+        if not candidates_dir.exists():
+            candidates_dir = data_dir / "patient_centric_boilerplate_checks"
 
-    print(f"Loading gold standard from: {candidates_dir}")
+        print(f"Loading gold standard from: {candidates_dir}")
 
-    try:
-        gold = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        print(f"No gold standard data found in {candidates_dir}")
-        return
+        try:
+            gold = load_and_combine_csv_files(str(candidates_dir))
+        except FileNotFoundError:
+            print(f"No gold standard data found in {candidates_dir}")
+            return
 
     if split_filter and 'split' in gold.columns:
         gold = gold[gold.split.str.contains(split_filter)]
@@ -135,7 +145,10 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
     print("=" * 60)
 
     if llm_results_file is None:
+        # Look for standard file names - aggregated outputs and oncoreasoning outputs
         possible_files = [
+            data_dir / "consolidated_boilerplate_trial_centric.csv",
+            data_dir / "oncoreasoning_boilerplate_trial_centric.csv",
             data_dir / "trial_centric_boilerplate_checks" / "consolidated_results.csv",
             data_dir / "boilerplate_trial_centric_soc.csv",
             Path(__file__).parent / "boilerplate_trial_centric_soc.csv",
@@ -151,17 +164,24 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
 
     predictions = load_llm_results(llm_results_file, 'exclusion_result')
 
-    candidates_dir = data_dir / "boilerplates_for_patients_for_spaces_checks"
-    if not candidates_dir.exists():
-        candidates_dir = data_dir / "trial_centric_boilerplate_checks"
+    # Load gold standard labels - prefer consolidated candidate file
+    consolidated_path = data_dir / "trial_centric_candidates.csv"
+    if consolidated_path.exists():
+        print(f"Loading consolidated file: {consolidated_path}")
+        gold = pd.read_csv(consolidated_path)
+    else:
+        # Fallback to shard directories
+        candidates_dir = data_dir / "boilerplates_for_patients_for_spaces_checks"
+        if not candidates_dir.exists():
+            candidates_dir = data_dir / "trial_centric_boilerplate_checks"
 
-    print(f"Loading gold standard from: {candidates_dir}")
+        print(f"Loading gold standard from: {candidates_dir}")
 
-    try:
-        gold = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        print(f"No gold standard data found in {candidates_dir}")
-        return
+        try:
+            gold = load_and_combine_csv_files(str(candidates_dir))
+        except FileNotFoundError:
+            print(f"No gold standard data found in {candidates_dir}")
+            return
 
     if split_filter and 'split' in gold.columns:
         gold = gold[gold.split.str.contains(split_filter)]

@@ -258,7 +258,7 @@ Classification Report at 0.5 Threshold:
 
             # Page 7: Calibration curve
             fig, ax = plt.subplots(figsize=(8, 6))
-            y_plot, x_plot = calibration_curve(actual, sigmoid(predicted), n_bins=15)
+            y_plot, x_plot = calibration_curve(actual, predicted, n_bins=25)
             ax.plot(x_plot, y_plot, marker='o', linewidth=1, label='Model calibration')
             line = mlines.Line2D([0, 1], [0, 1], color='black', linestyle='--')
             transform = ax.transAxes
