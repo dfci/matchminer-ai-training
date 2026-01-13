@@ -52,6 +52,13 @@ def parse_args():
                         help="Run model inference (requires GPU)")
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Batch size for inference")
+    # Sharding arguments for multi-GPU parallelization
+    parser.add_argument("--shard-id", type=int, default=None,
+                        help="Shard ID (0-indexed) for parallel execution")
+    parser.add_argument("--num-shards", type=int, default=None,
+                        help="Total number of shards for parallel execution")
+    parser.add_argument("--shard-dir", type=str, default=None,
+                        help="Directory for shard outputs (enables parallel mode)")
     return parser.parse_args()
 
 
@@ -116,55 +123,100 @@ def run_trial_checker_inference(df: pd.DataFrame, model_path: str,
     return df
 
 
+def merge_shards(shard_dir: Path, output_path: Path, num_shards: int) -> pd.DataFrame:
+    """Merge completed shard files into single output."""
+    dfs = []
+    for i in range(num_shards):
+        shard_path = shard_dir / f"shard_{i}.csv"
+        if shard_path.exists():
+            dfs.append(pd.read_csv(shard_path))
+        else:
+            print(f"Warning: Missing shard file {shard_path}")
+    if not dfs:
+        print("No shard files found to merge")
+        return None
+    combined = pd.concat(dfs, axis=0).reset_index(drop=True)
+    combined.to_csv(output_path, index=False)
+    print(f"Merged {len(dfs)} shards ({len(combined)} rows) into {output_path}")
+    return combined
+
+
 def evaluate_patient_centric(data_dir: Path, output_dir: Path,
                               model_path: str = None, gpu: str = "0",
                               k: int = 20, run_inference: bool = False,
-                              batch_size: int = 32):
+                              batch_size: int = 32,
+                              shard_id: int = None, num_shards: int = None,
+                              shard_dir: str = None):
     """Evaluate patient-centric trial checker performance."""
     print("=" * 60)
     print("EVALUATING PATIENT-CENTRIC TRIAL CHECKER")
+    if shard_id is not None:
+        print(f"(Shard {shard_id + 1}/{num_shards})")
     print("=" * 60)
 
     # Set GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load consolidated eligibility results from GPT checks
-    consolidated_path = data_dir / "consolidated_eligibility_patient_centric.csv"
-    if not consolidated_path.exists():
-        print(f"Consolidated eligibility file not found: {consolidated_path}")
-        return
-
-    print(f"Loading consolidated file: {consolidated_path}")
-    combined_df = pd.read_csv(consolidated_path)
-
-    print(f"Loaded {len(combined_df)} rows")
-
-    # Filter out null patient summaries
-    combined_df = combined_df[~combined_df.patient_summary.isnull()]
-
-    validation_set = combined_df.copy()
-    print(f"Unique trial spaces: {validation_set.this_space.nunique()}")
-    print(f"Unique patients: {validation_set.patient_summary.nunique()}")
-
-    # Run inference if requested
-    if run_inference and model_path:
-        validation_set = run_trial_checker_inference(
-            validation_set, model_path, device='cuda', batch_size=batch_size
-        )
-        # Save intermediate results
+    # Handle merge-only mode (shard_dir specified but no shard_id)
+    shard_dir_path = Path(shard_dir) if shard_dir else None
+    if shard_dir_path and num_shards and shard_id is None:
+        print("Merge mode: combining shards and running evaluation...")
         output_dir.mkdir(parents=True, exist_ok=True)
         intermediate_path = output_dir / "patient_centric_with_predictions.csv"
-        validation_set.to_csv(intermediate_path, index=False)
-        print(f"Saved predictions to: {intermediate_path}")
-    elif 'prediction_score' not in validation_set.columns:
-        # Try loading pre-computed predictions
-        precomputed_path = output_dir / "patient_centric_with_predictions.csv"
-        if precomputed_path.exists():
-            print(f"Loading pre-computed predictions from: {precomputed_path}")
-            validation_set = pd.read_csv(precomputed_path)
-        else:
-            print("No predictions available. Use --run-inference to generate them.")
+        validation_set = merge_shards(shard_dir_path, intermediate_path, num_shards)
+        if validation_set is None:
             return
+    else:
+        # Load consolidated eligibility results from GPT checks
+        consolidated_path = data_dir / "consolidated_eligibility_patient_centric.csv"
+        if not consolidated_path.exists():
+            print(f"Consolidated eligibility file not found: {consolidated_path}")
+            return
+
+        print(f"Loading consolidated file: {consolidated_path}")
+        combined_df = pd.read_csv(consolidated_path)
+
+        print(f"Loaded {len(combined_df)} rows")
+
+        # Filter out null patient summaries
+        combined_df = combined_df[~combined_df.patient_summary.isnull()]
+
+        validation_set = combined_df.copy()
+
+        # Apply sharding if specified
+        if shard_id is not None and num_shards is not None:
+            validation_set = validation_set.iloc[shard_id::num_shards].reset_index(drop=True)
+            print(f"Processing shard {shard_id + 1}/{num_shards}: {len(validation_set)} samples")
+
+        print(f"Unique trial spaces: {validation_set.this_space.nunique()}")
+        print(f"Unique patients: {validation_set.patient_summary.nunique()}")
+
+        # Run inference if requested
+        if run_inference and model_path:
+            validation_set = run_trial_checker_inference(
+                validation_set, model_path, device='cuda', batch_size=batch_size
+            )
+            # Save to shard file or main output
+            if shard_dir_path and shard_id is not None:
+                shard_dir_path.mkdir(parents=True, exist_ok=True)
+                shard_path = shard_dir_path / f"shard_{shard_id}.csv"
+                validation_set.to_csv(shard_path, index=False)
+                print(f"Saved shard to: {shard_path}")
+                return  # Exit after saving shard - merge step will do evaluation
+            else:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                intermediate_path = output_dir / "patient_centric_with_predictions.csv"
+                validation_set.to_csv(intermediate_path, index=False)
+                print(f"Saved predictions to: {intermediate_path}")
+        elif 'prediction_score' not in validation_set.columns:
+            # Try loading pre-computed predictions
+            precomputed_path = output_dir / "patient_centric_with_predictions.csv"
+            if precomputed_path.exists():
+                print(f"Loading pre-computed predictions from: {precomputed_path}")
+                validation_set = pd.read_csv(precomputed_path)
+            else:
+                print("No predictions available. Use --run-inference to generate them.")
+                return
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -177,7 +229,7 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
         # Generate classification PDF report
         pdf_path = output_dir / "trial_checker_patient_centric_classification.pdf"
         eval_model(
-            validation_set.prediction_logit.values,
+            validation_set.prediction_score.values,
             validation_set.eligibility_result.values,
             pdf_path=str(pdf_path),
             title_prefix="Trial Checker Patient-Centric"
@@ -236,50 +288,78 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
 def evaluate_trial_centric(data_dir: Path, output_dir: Path,
                             model_path: str = None, gpu: str = "0",
                             k: int = 20, run_inference: bool = False,
-                            batch_size: int = 32):
+                            batch_size: int = 32,
+                            shard_id: int = None, num_shards: int = None,
+                            shard_dir: str = None):
     """Evaluate trial-centric trial checker performance."""
     print("=" * 60)
     print("EVALUATING TRIAL-CENTRIC TRIAL CHECKER")
+    if shard_id is not None:
+        print(f"(Shard {shard_id + 1}/{num_shards})")
     print("=" * 60)
 
     # Set GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load consolidated eligibility results from GPT checks
-    consolidated_path = data_dir / "consolidated_eligibility_trial_centric.csv"
-    if not consolidated_path.exists():
-        print(f"Consolidated eligibility file not found: {consolidated_path}")
-        return
-
-    print(f"Loading consolidated file: {consolidated_path}")
-    combined_df = pd.read_csv(consolidated_path)
-
-    print(f"Loaded {len(combined_df)} rows")
-
-    # Filter out null patient summaries
-    combined_df = combined_df[~combined_df.patient_summary.isnull()]
-
-    validation_set = combined_df.copy()
-    print(f"Unique trial spaces: {validation_set.this_space.nunique()}")
-    print(f"Unique patients: {validation_set.patient_summary.nunique()}")
-
-    # Run inference if requested
-    if run_inference and model_path:
-        validation_set = run_trial_checker_inference(
-            validation_set, model_path, device='cuda', batch_size=batch_size
-        )
+    # Handle merge-only mode (shard_dir specified but no shard_id)
+    shard_dir_path = Path(shard_dir) if shard_dir else None
+    if shard_dir_path and num_shards and shard_id is None:
+        print("Merge mode: combining shards and running evaluation...")
         output_dir.mkdir(parents=True, exist_ok=True)
         intermediate_path = output_dir / "trial_centric_with_predictions.csv"
-        validation_set.to_csv(intermediate_path, index=False)
-        print(f"Saved predictions to: {intermediate_path}")
-    elif 'prediction_score' not in validation_set.columns:
-        precomputed_path = output_dir / "trial_centric_with_predictions.csv"
-        if precomputed_path.exists():
-            print(f"Loading pre-computed predictions from: {precomputed_path}")
-            validation_set = pd.read_csv(precomputed_path)
-        else:
-            print("No predictions available. Use --run-inference to generate them.")
+        validation_set = merge_shards(shard_dir_path, intermediate_path, num_shards)
+        if validation_set is None:
             return
+    else:
+        # Load consolidated eligibility results from GPT checks
+        consolidated_path = data_dir / "consolidated_eligibility_trial_centric.csv"
+        if not consolidated_path.exists():
+            print(f"Consolidated eligibility file not found: {consolidated_path}")
+            return
+
+        print(f"Loading consolidated file: {consolidated_path}")
+        combined_df = pd.read_csv(consolidated_path)
+
+        print(f"Loaded {len(combined_df)} rows")
+
+        # Filter out null patient summaries
+        combined_df = combined_df[~combined_df.patient_summary.isnull()]
+
+        validation_set = combined_df.copy()
+
+        # Apply sharding if specified
+        if shard_id is not None and num_shards is not None:
+            validation_set = validation_set.iloc[shard_id::num_shards].reset_index(drop=True)
+            print(f"Processing shard {shard_id + 1}/{num_shards}: {len(validation_set)} samples")
+
+        print(f"Unique trial spaces: {validation_set.this_space.nunique()}")
+        print(f"Unique patients: {validation_set.patient_summary.nunique()}")
+
+        # Run inference if requested
+        if run_inference and model_path:
+            validation_set = run_trial_checker_inference(
+                validation_set, model_path, device='cuda', batch_size=batch_size
+            )
+            # Save to shard file or main output
+            if shard_dir_path and shard_id is not None:
+                shard_dir_path.mkdir(parents=True, exist_ok=True)
+                shard_path = shard_dir_path / f"shard_{shard_id}.csv"
+                validation_set.to_csv(shard_path, index=False)
+                print(f"Saved shard to: {shard_path}")
+                return  # Exit after saving shard - merge step will do evaluation
+            else:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                intermediate_path = output_dir / "trial_centric_with_predictions.csv"
+                validation_set.to_csv(intermediate_path, index=False)
+                print(f"Saved predictions to: {intermediate_path}")
+        elif 'prediction_score' not in validation_set.columns:
+            precomputed_path = output_dir / "trial_centric_with_predictions.csv"
+            if precomputed_path.exists():
+                print(f"Loading pre-computed predictions from: {precomputed_path}")
+                validation_set = pd.read_csv(precomputed_path)
+            else:
+                print("No predictions available. Use --run-inference to generate them.")
+                return
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -291,7 +371,7 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
 
         pdf_path = output_dir / "trial_checker_trial_centric_classification.pdf"
         eval_model(
-            validation_set.prediction_logit.values,
+            validation_set.prediction_score.values,
             validation_set.eligibility_result.values,
             pdf_path=str(pdf_path),
             title_prefix="Trial Checker Trial-Centric"
@@ -355,7 +435,10 @@ def main():
             gpu=args.gpu,
             k=args.k,
             run_inference=args.run_inference,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            shard_id=args.shard_id,
+            num_shards=args.num_shards,
+            shard_dir=args.shard_dir
         )
     else:
         evaluate_trial_centric(
@@ -364,7 +447,10 @@ def main():
             gpu=args.gpu,
             k=args.k,
             run_inference=args.run_inference,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            shard_id=args.shard_id,
+            num_shards=args.num_shards,
+            shard_dir=args.shard_dir
         )
 
 

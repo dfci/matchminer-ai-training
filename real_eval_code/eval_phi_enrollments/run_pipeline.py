@@ -838,8 +838,94 @@ def main():
         eval_output_dir = Path(args.eval_output_dir) if args.eval_output_dir else DATA_DIR / "evaluation"
         eval_output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Define evaluation tasks for each module (scripts are now in SCRIPTS_DIR)
-        eval_tasks = [
+        # Helper function to run ModernBERT eval with multi-GPU sharding
+        def run_sharded_modernbert_eval(task: dict, gpus: List[str], dry_run: bool) -> int:
+            """Run ModernBERT eval with multi-GPU sharding."""
+            num_gpus = len(gpus)
+            shard_dir = Path(task['output_dir']) / f"shards_{task['mode']}"
+
+            # Step 1: Launch parallel inference processes (one per GPU)
+            print(f"\n--- Running {task['description']} with {num_gpus} GPU shards ---")
+            commands = []
+            for shard_id, gpu in enumerate(gpus):
+                cmd = [
+                    "python", task['script'],
+                    "--mode", task['mode'],
+                    "--data-dir", str(DATA_DIR),
+                    "--output-dir", str(task['output_dir']),
+                    "--model-path", task['model_path'],
+                    "--gpu", gpu,
+                    "--shard-id", str(shard_id),
+                    "--num-shards", str(num_gpus),
+                    "--shard-dir", str(shard_dir),
+                    "--run-inference",
+                ]
+                commands.append({
+                    'cmd': cmd,
+                    'description': f"{task['description']} (shard {shard_id + 1}/{num_gpus})",
+                    'show_output': True,
+                })
+
+            results = run_parallel_commands(commands, num_gpus, dry_run)
+
+            if any(r != 0 for r in results):
+                print(f"Warning: Some shards failed for {task['description']}")
+                return 1
+
+            # Step 2: Run merge step (single process, merges shards and runs evaluation)
+            merge_cmd = [
+                "python", task['script'],
+                "--mode", task['mode'],
+                "--data-dir", str(DATA_DIR),
+                "--output-dir", str(task['output_dir']),
+                "--model-path", task['model_path'],
+                "--shard-dir", str(shard_dir),
+                "--num-shards", str(num_gpus),
+                # No --run-inference, just merge and evaluate
+            ]
+            return run_command(merge_cmd, f"{task['description']} (merge & evaluate)", dry_run)
+
+        # ModernBERT tasks with multi-GPU sharding
+        modernbert_tasks = [
+            {
+                'script': "eval_modernbert_trial_checker.py",
+                'mode': "patient_centric",
+                'output_dir': eval_output_dir / "modernbert-trial-checker",
+                'model_path': args.trial_checker_model,
+                'description': "ModernBERT trial checker patient-centric",
+            },
+            {
+                'script': "eval_modernbert_trial_checker.py",
+                'mode': "trial_centric",
+                'output_dir': eval_output_dir / "modernbert-trial-checker",
+                'model_path': args.trial_checker_model,
+                'description': "ModernBERT trial checker trial-centric",
+            },
+            {
+                'script': "eval_modernbert_boilerplate_checker.py",
+                'mode': "patient_centric",
+                'output_dir': eval_output_dir / "modernbert-boilerplate-checker",
+                'model_path': args.boilerplate_checker_model,
+                'description': "ModernBERT boilerplate checker patient-centric",
+            },
+            {
+                'script': "eval_modernbert_boilerplate_checker.py",
+                'mode': "trial_centric",
+                'output_dir': eval_output_dir / "modernbert-boilerplate-checker",
+                'model_path': args.boilerplate_checker_model,
+                'description': "ModernBERT boilerplate checker trial-centric",
+            },
+        ]
+
+        # Run ModernBERT tasks with multi-GPU sharding
+        for task in modernbert_tasks:
+            task['output_dir'].mkdir(parents=True, exist_ok=True)
+            ret = run_sharded_modernbert_eval(task, gpu_list, args.dry_run)
+            if ret != 0:
+                print(f"Warning: {task['description']} failed, continuing...")
+
+        # Other evaluation tasks (non-ModernBERT, run sequentially)
+        other_eval_tasks = [
             # Qwen3 baseline evaluation (uses baseline_ prefix for data files)
             {
                 'script': "eval_baseline.py",
@@ -854,40 +940,6 @@ def main():
                          "--output-dir", str(eval_output_dir / "qwen3-baseline"),
                          "--prefix", "baseline_"],
                 'description': "Qwen3 baseline trial-centric evaluation",
-            },
-            # ModernBERT trial checker evaluation
-            {
-                'script': "eval_modernbert_trial_checker.py",
-                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
-                         "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
-                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0],
-                         "--run-inference"],
-                'description': "ModernBERT trial checker patient-centric evaluation",
-            },
-            {
-                'script': "eval_modernbert_trial_checker.py",
-                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
-                         "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
-                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0],
-                         "--run-inference"],
-                'description': "ModernBERT trial checker trial-centric evaluation",
-            },
-            # ModernBERT boilerplate checker evaluation
-            {
-                'script': "eval_modernbert_boilerplate_checker.py",
-                'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
-                         "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
-                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0],
-                         "--run-inference"],
-                'description': "ModernBERT boilerplate checker patient-centric evaluation",
-            },
-            {
-                'script': "eval_modernbert_boilerplate_checker.py",
-                'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
-                         "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
-                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0],
-                         "--run-inference"],
-                'description': "ModernBERT boilerplate checker trial-centric evaluation",
             },
             # OncoReasoning LLM trial checker evaluation
             {
@@ -917,7 +969,7 @@ def main():
             },
         ]
 
-        for task in eval_tasks:
+        for task in other_eval_tasks:
             cmd = ["python", task['script']] + task['args']
             ret = run_command(cmd, task['description'], args.dry_run)
             if ret != 0:
