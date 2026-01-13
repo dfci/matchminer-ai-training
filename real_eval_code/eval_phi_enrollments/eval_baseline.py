@@ -61,32 +61,32 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path, k: int = 20, pref
     print(f"EVALUATING {prefix.upper().rstrip('_') + ' ' if prefix else ''}PATIENT-CENTRIC BASELINE RETRIEVAL")
     print("=" * 60)
 
-    # Load candidate files - try shards first, then consolidated file
-    candidates_dir = data_dir / f"shards_{prefix}patient_centric"
-    if not candidates_dir.exists():
-        # Try alternate path pattern without prefix
-        candidates_dir = data_dir / "spaces_for_patient_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "shards_patient_centric"
-
-    print(f"Loading data from: {candidates_dir}")
-
-    try:
-        combined_df = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        # Try loading consolidated file
-        consolidated_path = data_dir / f"{prefix}patient_centric_candidates.csv"
+    # For baseline evaluation, load from consolidated eligibility file which has eligibility_result
+    # For non-baseline (no prefix), load from candidate files
+    if prefix:
+        # Baseline: load from consolidated eligibility file (has eligibility_result from LLM checks)
+        consolidated_path = data_dir / f"{prefix}consolidated_eligibility_patient_centric.csv"
+        if not consolidated_path.exists():
+            print(f"Consolidated eligibility file not found: {consolidated_path}")
+            return
+        print(f"Loading consolidated eligibility file: {consolidated_path}")
+        combined_df = pd.read_csv(consolidated_path)
+    else:
+        # Non-baseline: try candidate files
+        consolidated_path = data_dir / "patient_centric_candidates.csv"
         if consolidated_path.exists():
             print(f"Loading consolidated file: {consolidated_path}")
             combined_df = pd.read_csv(consolidated_path)
         else:
-            # Also try without prefix
-            consolidated_path = data_dir / "patient_centric_candidates.csv"
-            if consolidated_path.exists():
-                print(f"Loading consolidated file: {consolidated_path}")
-                combined_df = pd.read_csv(consolidated_path)
-            else:
-                print(f"No data found in {candidates_dir} or {consolidated_path}")
+            # Fallback to shard directories
+            candidates_dir = data_dir / "spaces_for_patient_checks"
+            if not candidates_dir.exists():
+                candidates_dir = data_dir / "shards_patient_centric"
+            print(f"Loading data from: {candidates_dir}")
+            try:
+                combined_df = load_and_combine_csv_files(str(candidates_dir))
+            except FileNotFoundError:
+                print(f"No data found")
                 return
 
     print(f"Loaded {len(combined_df)} rows")
@@ -149,31 +149,32 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path, k: int = 20, prefix
     print(f"EVALUATING {prefix.upper().rstrip('_') + ' ' if prefix else ''}TRIAL-CENTRIC BASELINE RETRIEVAL")
     print("=" * 60)
 
-    # Load candidate files - try shards first, then consolidated file
-    candidates_dir = data_dir / f"shards_{prefix}trial_centric"
-    if not candidates_dir.exists():
-        candidates_dir = data_dir / "patients_for_spaces_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "shards_trial_centric"
-
-    print(f"Loading data from: {candidates_dir}")
-
-    try:
-        combined_df = load_and_combine_csv_files(str(candidates_dir))
-    except FileNotFoundError:
-        # Try loading consolidated file
-        consolidated_path = data_dir / f"{prefix}trial_centric_candidates.csv"
+    # For baseline evaluation, load from consolidated eligibility file which has eligibility_result
+    # For non-baseline (no prefix), load from candidate files
+    if prefix:
+        # Baseline: load from consolidated eligibility file (has eligibility_result from LLM checks)
+        consolidated_path = data_dir / f"{prefix}consolidated_eligibility_trial_centric.csv"
+        if not consolidated_path.exists():
+            print(f"Consolidated eligibility file not found: {consolidated_path}")
+            return
+        print(f"Loading consolidated eligibility file: {consolidated_path}")
+        combined_df = pd.read_csv(consolidated_path)
+    else:
+        # Non-baseline: try candidate files
+        consolidated_path = data_dir / "trial_centric_candidates.csv"
         if consolidated_path.exists():
             print(f"Loading consolidated file: {consolidated_path}")
             combined_df = pd.read_csv(consolidated_path)
         else:
-            # Also try without prefix
-            consolidated_path = data_dir / "trial_centric_candidates.csv"
-            if consolidated_path.exists():
-                print(f"Loading consolidated file: {consolidated_path}")
-                combined_df = pd.read_csv(consolidated_path)
-            else:
-                print(f"No data found in {candidates_dir} or {consolidated_path}")
+            # Fallback to shard directories
+            candidates_dir = data_dir / "patients_for_spaces_checks"
+            if not candidates_dir.exists():
+                candidates_dir = data_dir / "shards_trial_centric"
+            print(f"Loading data from: {candidates_dir}")
+            try:
+                combined_df = load_and_combine_csv_files(str(candidates_dir))
+            except FileNotFoundError:
+                print(f"No data found")
                 return
 
     print(f"Loaded {len(combined_df)} rows")

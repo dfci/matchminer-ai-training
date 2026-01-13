@@ -10,12 +10,11 @@ Pipeline stages:
 1. summarize: Summarize patient EHR (uses 6_summarize_patients.py)
 2. spacify: Create/copy trial spaces
 3. retrieval: Patient-centric + trial-centric retrieval (trialspace embedding)
-4. llm_checks: Eligibility + boilerplate LLM checks via API (GPT)
+4. llm_checks: Eligibility + boilerplate LLM checks via API (GPT) - self-aggregating
 5. oncoreasoning: OncoReasoning LLM inference via vLLM (trial check + boilerplate)
-6. aggregation: Consolidate results (for trialspace retrieval)
-7. baseline: Baseline evaluation using Qwen3 embedding - includes retrieval,
+6. baseline: Baseline evaluation using Qwen3 embedding - includes retrieval,
              eligibility checks, and aggregation (no boilerplate checks)
-8. evaluation: Run model evaluations and generate PDF reports
+7. evaluation: Run model evaluations and generate PDF reports
 
 Usage:
     # Run full pipeline with 4 GPUs
@@ -60,10 +59,9 @@ STAGES = [
     "summarize",      # Patient summarization
     "spacify",        # Trial space creation
     "retrieval",      # Patient-centric + trial-centric retrieval (trialspace embedding)
-    "llm_checks",     # Eligibility + boilerplate checks (for trialspace retrieval)
+    "llm_checks",     # Eligibility + boilerplate checks (self-aggregating)
     "oncoreasoning",  # OncoReasoning LLM inference (trial check + boilerplate)
-    "aggregation",    # Result consolidation (for trialspace retrieval)
-    "baseline",       # Baseline: retrieval (Qwen3 embedding) + eligibility checks + aggregation
+    "baseline",       # Baseline: retrieval (Qwen3 embedding) + eligibility checks
     "evaluation"      # Model evaluation and PDF report generation
 ]
 
@@ -544,6 +542,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_eligibility_checks"),
+                'output_file': str(DATA_DIR / "consolidated_eligibility_patient_centric.csv"),
                 'model': GOLD_LLM,
                 'description': "Patient-centric eligibility check",
                 'mode': "patient_centric",
@@ -554,6 +553,7 @@ def main():
                 'args': ["--mode", "patient_centric"],
                 'input': str(DATA_DIR / "patient_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "patient_centric_boilerplate_checks"),
+                'output_file': str(DATA_DIR / "consolidated_boilerplate_patient_centric.csv"),
                 'model': GOLD_LLM,
                 'description': "Patient-centric boilerplate check",
                 'mode': "patient_centric",
@@ -564,6 +564,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_eligibility_checks"),
+                'output_file': str(DATA_DIR / "consolidated_eligibility_trial_centric.csv"),
                 'model': GOLD_LLM,
                 'description': "Trial-centric eligibility check",
                 'mode': "trial_centric",
@@ -574,6 +575,7 @@ def main():
                 'args': ["--mode", "trial_centric"],
                 'input': str(DATA_DIR / "trial_centric_candidates.csv"),
                 'output_dir': str(DATA_DIR / "trial_centric_boilerplate_checks"),
+                'output_file': str(DATA_DIR / "consolidated_boilerplate_trial_centric.csv"),
                 'model': GOLD_LLM,
                 'description': "Trial-centric boilerplate check",
                 'mode': "trial_centric",
@@ -609,6 +611,7 @@ def main():
                     "--download-dir", args.download_dir,
                     "--input", task['input'],
                     "--output-dir", task['output_dir'],
+                    "--output-file", task['output_file'],
                     "--model", task['model'],
                 ] + task['args']
 
@@ -702,49 +705,9 @@ def main():
                 if ret != 0:
                     failures.append("oncoreasoning")
 
-    # Stage 6: Aggregation (CPU only)
-    if "aggregation" in stages_to_run:
-        print("\n" + "="*70)
-        print("STAGE 6: AGGREGATE RESULTS")
-        print("="*70)
-
-        aggregation_outputs = [
-            DATA_DIR / "consolidated_eligibility_patient_centric.csv",
-            DATA_DIR / "consolidated_boilerplate_patient_centric.csv",
-            DATA_DIR / "consolidated_eligibility_trial_centric.csv",
-            DATA_DIR / "consolidated_boilerplate_trial_centric.csv",
-        ]
-        if not args.force and check_outputs_exist(aggregation_outputs, "Result aggregation"):
-            pass  # Skip
-        else:
-            aggregation_tasks = [
-                ("eligibility", "patient_centric",
-                 str(DATA_DIR / "patient_centric_eligibility_checks"),
-                 str(DATA_DIR / "consolidated_eligibility_patient_centric.csv")),
-                ("boilerplate", "patient_centric",
-                 str(DATA_DIR / "patient_centric_boilerplate_checks"),
-                 str(DATA_DIR / "consolidated_boilerplate_patient_centric.csv")),
-                ("eligibility", "trial_centric",
-                 str(DATA_DIR / "trial_centric_eligibility_checks"),
-                 str(DATA_DIR / "consolidated_eligibility_trial_centric.csv")),
-                ("boilerplate", "trial_centric",
-                 str(DATA_DIR / "trial_centric_boilerplate_checks"),
-                 str(DATA_DIR / "consolidated_boilerplate_trial_centric.csv")),
-            ]
-
-            for mode, direction, primary_dir, output_file in aggregation_tasks:
-                cmd = [
-                    "python", str(ENROLLMENTS_SCRIPTS_DIR / "aggregate_results.py"),
-                    "--mode", mode,
-                    "--direction", direction,
-                    "--primary-dir", primary_dir,
-                    "--output-file", output_file,
-                ]
-
-                desc = f"Aggregate {mode} results for {direction}"
-                ret = run_command(cmd, desc, args.dry_run)
-                if ret != 0:
-                    failures.append("aggregation")
+    # Stage 6: Aggregation - REMOVED
+    # The check_eligibility.py and check_boilerplate.py scripts now self-aggregate
+    # their shards into consolidated_*.csv files, so this stage is no longer needed.
 
     # Stage 7: Baseline evaluation (uses Qwen3 embedding, eligibility checks only - no boilerplate)
     if "baseline" in stages_to_run:
@@ -813,6 +776,7 @@ def main():
                         failures.append("baseline")
 
             # Step 2: Baseline eligibility checks (no boilerplate for baseline)
+            # These self-aggregate to consolidated output files
             print("\n--- Baseline Eligibility Checks ---")
             baseline_check_tasks = [
                 {
@@ -820,6 +784,7 @@ def main():
                     'args': ["--mode", "patient_centric"],
                     'input': str(DATA_DIR / "baseline_patient_centric_candidates.csv"),
                     'output_dir': str(DATA_DIR / "baseline_patient_centric_eligibility_checks"),
+                    'output_file': str(DATA_DIR / "baseline_consolidated_eligibility_patient_centric.csv"),
                     'model': GOLD_LLM,
                     'description': "Baseline patient-centric eligibility check",
                     'mode': "patient_centric",
@@ -830,6 +795,7 @@ def main():
                     'args': ["--mode", "trial_centric"],
                     'input': str(DATA_DIR / "baseline_trial_centric_candidates.csv"),
                     'output_dir': str(DATA_DIR / "baseline_trial_centric_eligibility_checks"),
+                    'output_file': str(DATA_DIR / "baseline_consolidated_eligibility_trial_centric.csv"),
                     'model': GOLD_LLM,
                     'description': "Baseline trial-centric eligibility check",
                     'mode': "trial_centric",
@@ -861,6 +827,7 @@ def main():
                         "--download-dir", args.download_dir,
                         "--input", task['input'],
                         "--output-dir", task['output_dir'],
+                        "--output-file", task['output_file'],
                         "--model", task['model'],
                     ] + task['args']
 
@@ -879,31 +846,6 @@ def main():
                         failures.append("baseline")
             else:
                 print("  [SKIP] Baseline eligibility checks: All sub-tasks already complete")
-
-            # Step 3: Baseline aggregation (eligibility only)
-            print("\n--- Baseline Aggregation ---")
-            baseline_aggregation_tasks = [
-                ("eligibility", "patient_centric",
-                 str(DATA_DIR / "baseline_patient_centric_eligibility_checks"),
-                 str(DATA_DIR / "baseline_consolidated_eligibility_patient_centric.csv")),
-                ("eligibility", "trial_centric",
-                 str(DATA_DIR / "baseline_trial_centric_eligibility_checks"),
-                 str(DATA_DIR / "baseline_consolidated_eligibility_trial_centric.csv")),
-            ]
-
-            for mode, direction, primary_dir, output_file in baseline_aggregation_tasks:
-                cmd = [
-                    "python", str(ENROLLMENTS_SCRIPTS_DIR / "aggregate_results.py"),
-                    "--mode", mode,
-                    "--direction", direction,
-                    "--primary-dir", primary_dir,
-                    "--output-file", output_file,
-                ]
-
-                desc = f"Baseline aggregate {mode} results for {direction}"
-                ret = run_command(cmd, desc, args.dry_run)
-                if ret != 0:
-                    failures.append("baseline")
 
     # Stage 8: Evaluation (generate PDF reports with metrics)
     if "evaluation" in stages_to_run:
@@ -936,14 +878,16 @@ def main():
                 'script': "eval_modernbert_trial_checker.py",
                 'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
                          "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
-                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0]],
+                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0],
+                         "--run-inference"],
                 'description': "SOC ModernBERT trial checker patient-centric evaluation",
             },
             {
                 'script': "eval_modernbert_trial_checker.py",
                 'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
                          "--output-dir", str(eval_output_dir / "modernbert-trial-checker"),
-                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0]],
+                         "--model-path", args.trial_checker_model, "--gpu", gpu_list[0],
+                         "--run-inference"],
                 'description': "SOC ModernBERT trial checker trial-centric evaluation",
             },
             # ModernBERT boilerplate checker evaluation
@@ -951,14 +895,16 @@ def main():
                 'script': "eval_modernbert_boilerplate_checker.py",
                 'args': ["--mode", "patient_centric", "--data-dir", str(DATA_DIR),
                          "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
-                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0]],
+                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0],
+                         "--run-inference"],
                 'description': "SOC ModernBERT boilerplate checker patient-centric evaluation",
             },
             {
                 'script': "eval_modernbert_boilerplate_checker.py",
                 'args': ["--mode", "trial_centric", "--data-dir", str(DATA_DIR),
                          "--output-dir", str(eval_output_dir / "modernbert-boilerplate-checker"),
-                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0]],
+                         "--model-path", args.boilerplate_checker_model, "--gpu", gpu_list[0],
+                         "--run-inference"],
                 'description': "SOC ModernBERT boilerplate checker trial-centric evaluation",
             },
             # OncoReasoning LLM trial checker evaluation

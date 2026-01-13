@@ -37,6 +37,8 @@ def parse_args():
                         help="Input CSV file with candidates (default: derived from mode)")
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Output directory for shard files (default: derived from mode)")
+    parser.add_argument("--output-file", type=str, default=None,
+                        help="Final merged output CSV file (default: derived from mode)")
     parser.add_argument("--batch-size", type=int, default=2000,
                         help="Batch size for LLM inference")
     parser.add_argument("--model", type=str, default='openai/gpt-oss-120b',
@@ -127,6 +129,38 @@ def get_completed_batches(output_dir):
     return max_idx
 
 
+def merge_shards(output_dir, output_file):
+    """Merge all shard files into a single output file."""
+    pattern = os.path.join(output_dir, "*_through_*.csv")
+    shard_files = sorted(glob.glob(pattern))
+
+    if not shard_files:
+        print("No shards found to merge!")
+        return False
+
+    print(f"Merging {len(shard_files)} shards into {output_file}")
+
+    dfs = []
+    for shard_file in shard_files:
+        try:
+            df = pd.read_csv(shard_file)
+            dfs.append(df)
+        except Exception as e:
+            print(f"Warning: Could not read {shard_file}: {e}")
+
+    if dfs:
+        merged_df = pd.concat(dfs, ignore_index=True)
+        # Sort by original index if available
+        if 'Unnamed: 0' in merged_df.columns:
+            merged_df = merged_df.sort_values(by='Unnamed: 0').reset_index(drop=True)
+        merged_df.to_csv(output_file, index=False)
+        print(f"Merged output saved to {output_file} ({len(merged_df)} total rows)")
+        return True
+    else:
+        print("No valid shards to merge!")
+        return False
+
+
 def main():
     args = parse_args()
 
@@ -145,6 +179,12 @@ def main():
             args.output_dir = str(REPO_ROOT.parent / "data/phi/patient_centric_boilerplate_checks")
         else:
             args.output_dir = str(REPO_ROOT.parent / "data/phi/trial_centric_boilerplate_checks")
+
+    if args.output_file is None:
+        if args.mode == "patient_centric":
+            args.output_file = str(REPO_ROOT.parent / "data/phi/consolidated_boilerplate_patient_centric.csv")
+        else:
+            args.output_file = str(REPO_ROOT.parent / "data/phi/consolidated_boilerplate_trial_centric.csv")
 
     # Set GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -191,18 +231,20 @@ def main():
                 llm
             )
 
-            # Determine output filename based on mode
+            # Determine shard filename based on mode
             if args.mode == "patient_centric":
-                output_file = output_dir / f"patient_centric_boilerplate_through_{i}.csv"
+                shard_file = output_dir / f"patient_centric_boilerplate_through_{i}.csv"
             else:
-                output_file = output_dir / f"trial_centric_boilerplate_through_{i}.csv"
+                shard_file = output_dir / f"trial_centric_boilerplate_through_{i}.csv"
 
-            output.to_csv(str(output_file), index=False)
+            output.to_csv(str(shard_file), index=False)
             print(f"Saved batch through {i}")
 
             num_in_batch = 0
             batch_list = []
 
+    # Merge all shards into final output file
+    merge_shards(str(output_dir), args.output_file)
     print("\n=== Done ===")
 
 

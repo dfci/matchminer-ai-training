@@ -128,24 +128,14 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
     # Set GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load candidate files - prefer consolidated file first
-    consolidated_path = data_dir / "patient_centric_candidates.csv"
-    if consolidated_path.exists():
-        print(f"Loading consolidated file: {consolidated_path}")
-        combined_df = pd.read_csv(consolidated_path)
-    else:
-        # Fallback to shard directories
-        candidates_dir = data_dir / "spaces_for_patient_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "shards_patient_centric"
+    # Load consolidated eligibility results from GPT checks
+    consolidated_path = data_dir / "consolidated_eligibility_patient_centric.csv"
+    if not consolidated_path.exists():
+        print(f"Consolidated eligibility file not found: {consolidated_path}")
+        return
 
-        print(f"Loading data from: {candidates_dir}")
-
-        try:
-            combined_df = load_and_combine_csv_files(str(candidates_dir))
-        except FileNotFoundError:
-            print(f"No data found")
-            return
+    print(f"Loading consolidated file: {consolidated_path}")
+    combined_df = pd.read_csv(consolidated_path)
 
     print(f"Loaded {len(combined_df)} rows")
 
@@ -255,24 +245,14 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
     # Set GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load candidate files - prefer consolidated file first
-    consolidated_path = data_dir / "trial_centric_candidates.csv"
-    if consolidated_path.exists():
-        print(f"Loading consolidated file: {consolidated_path}")
-        combined_df = pd.read_csv(consolidated_path)
-    else:
-        # Fallback to shard directories
-        candidates_dir = data_dir / "patients_for_spaces_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "shards_trial_centric"
+    # Load consolidated eligibility results from GPT checks
+    consolidated_path = data_dir / "consolidated_eligibility_trial_centric.csv"
+    if not consolidated_path.exists():
+        print(f"Consolidated eligibility file not found: {consolidated_path}")
+        return
 
-        print(f"Loading data from: {candidates_dir}")
-
-        try:
-            combined_df = load_and_combine_csv_files(str(candidates_dir))
-        except FileNotFoundError:
-            print(f"No data found")
-            return
+    print(f"Loading consolidated file: {consolidated_path}")
+    combined_df = pd.read_csv(consolidated_path)
 
     print(f"Loaded {len(combined_df)} rows")
 

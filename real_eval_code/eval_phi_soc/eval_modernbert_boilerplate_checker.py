@@ -108,24 +108,14 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
 
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load boilerplate candidate files - prefer consolidated file first
-    consolidated_path = data_dir / "patient_centric_candidates.csv"
-    if consolidated_path.exists():
-        print(f"Loading consolidated file: {consolidated_path}")
-        combined_df = pd.read_csv(consolidated_path)
-    else:
-        # Fallback to shard directories
-        candidates_dir = data_dir / "boilerplates_for_spaces_for_patient_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "patient_centric_boilerplate_checks"
+    # Load consolidated boilerplate results from GPT checks
+    consolidated_path = data_dir / "consolidated_boilerplate_patient_centric.csv"
+    if not consolidated_path.exists():
+        print(f"Consolidated boilerplate file not found: {consolidated_path}")
+        return
 
-        print(f"Looking for data in: {candidates_dir}")
-
-        try:
-            combined_df = load_and_combine_csv_files(str(candidates_dir))
-        except FileNotFoundError:
-            print(f"No boilerplate data found in {candidates_dir}")
-            return
+    print(f"Loading consolidated file: {consolidated_path}")
+    combined_df = pd.read_csv(consolidated_path)
 
     print(f"Loaded {len(combined_df)} rows")
 
@@ -201,24 +191,14 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
 
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-    # Load boilerplate candidate files - prefer consolidated file first
-    consolidated_path = data_dir / "trial_centric_candidates.csv"
-    if consolidated_path.exists():
-        print(f"Loading consolidated file: {consolidated_path}")
-        combined_df = pd.read_csv(consolidated_path)
-    else:
-        # Fallback to shard directories
-        candidates_dir = data_dir / "boilerplates_for_patients_for_spaces_checks"
-        if not candidates_dir.exists():
-            candidates_dir = data_dir / "trial_centric_boilerplate_checks"
+    # Load consolidated boilerplate results from GPT checks
+    consolidated_path = data_dir / "consolidated_boilerplate_trial_centric.csv"
+    if not consolidated_path.exists():
+        print(f"Consolidated boilerplate file not found: {consolidated_path}")
+        return
 
-        print(f"Looking for data in: {candidates_dir}")
-
-        try:
-            combined_df = load_and_combine_csv_files(str(candidates_dir))
-        except FileNotFoundError:
-            print(f"No boilerplate data found in {candidates_dir}")
-            return
+    print(f"Loading consolidated file: {consolidated_path}")
+    combined_df = pd.read_csv(consolidated_path)
 
     print(f"Loaded {len(combined_df)} rows")
 

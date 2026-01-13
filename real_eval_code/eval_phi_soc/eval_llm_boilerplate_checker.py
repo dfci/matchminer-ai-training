@@ -58,22 +58,12 @@ def evaluate_patient_centric(data_dir: Path, output_dir: Path,
     print("EVALUATING PATIENT-CENTRIC LLM BOILERPLATE CHECKER (SOC)")
     print("=" * 60)
 
+    # Find LLM results file - only OncoReasoning output
     if llm_results_file is None:
-        # Look for standard file names - aggregated outputs and oncoreasoning outputs
-        possible_files = [
-            data_dir / "consolidated_boilerplate_patient_centric.csv",
-            data_dir / "oncoreasoning_boilerplate_patient_centric.csv",
-            data_dir / "patient_centric_boilerplate_checks" / "consolidated_results.csv",
-            data_dir / "boilerplate_patient_centric_soc.csv",
-            Path(__file__).parent / "boilerplate_patient_centric_soc.csv",
-        ]
-        for f in possible_files:
-            if f.exists():
-                llm_results_file = f
-                break
+        llm_results_file = data_dir / "oncoreasoning_boilerplate_patient_centric.csv"
 
-    if llm_results_file is None or not llm_results_file.exists():
-        print(f"LLM results file not found")
+    if not llm_results_file.exists():
+        print(f"LLM results file not found: {llm_results_file}")
         return
 
     predictions = load_llm_results(llm_results_file, 'exclusion_result')
@@ -144,22 +134,12 @@ def evaluate_trial_centric(data_dir: Path, output_dir: Path,
     print("EVALUATING TRIAL-CENTRIC LLM BOILERPLATE CHECKER (SOC)")
     print("=" * 60)
 
+    # Find LLM results file - only OncoReasoning output
     if llm_results_file is None:
-        # Look for standard file names - aggregated outputs and oncoreasoning outputs
-        possible_files = [
-            data_dir / "consolidated_boilerplate_trial_centric.csv",
-            data_dir / "oncoreasoning_boilerplate_trial_centric.csv",
-            data_dir / "trial_centric_boilerplate_checks" / "consolidated_results.csv",
-            data_dir / "boilerplate_trial_centric_soc.csv",
-            Path(__file__).parent / "boilerplate_trial_centric_soc.csv",
-        ]
-        for f in possible_files:
-            if f.exists():
-                llm_results_file = f
-                break
+        llm_results_file = data_dir / "oncoreasoning_boilerplate_trial_centric.csv"
 
-    if llm_results_file is None or not llm_results_file.exists():
-        print(f"LLM results file not found")
+    if not llm_results_file.exists():
+        print(f"LLM results file not found: {llm_results_file}")
         return
 
     predictions = load_llm_results(llm_results_file, 'exclusion_result')
