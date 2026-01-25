@@ -1,4 +1,4 @@
-# matchminer-ai-training
+# matchminer-ai-training serial summarization branch
 Code for training the MatchMiner-AI pipeline.
 If you have access to a Linux machine with H100 x 8 GPUs and about a week to spare, you can replicate training by:
 
